@@ -30,8 +30,15 @@ import java.util.concurrent.locks.LockSupport
 class MorseTransmitter(
     private val ledController: TorchController?,
     private val screenController: ScreenFlashController,
+
     private val clock: HighResolutionClock = AndroidHighResolutionClock,
 ) {
+
+    /** 发报侧音：灯亮即响、灯灭即停；是否启用由设置决定。 */
+    private val sidetone = MorseSidetone()
+
+    @Volatile
+    private var soundEnabled: Boolean = false
 
     private val _state = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
@@ -55,6 +62,12 @@ class MorseTransmitter(
 
     /** LED 常亮开关的本地镜像（`setTorchMode` 不回读状态，需自行记账）。 */
     private var constantLedOn: Boolean = false
+
+    /** 开关发报侧音；关闭时立即静音。 */
+    fun setSoundEnabled(enabled: Boolean) {
+        soundEnabled = enabled
+        if (!enabled) sidetone.off()
+    }
 
     /**
      * 手电筒（常亮）是否点亮。
@@ -204,6 +217,7 @@ class MorseTransmitter(
     }
 
     fun release() {
+        sidetone.release()
         stop(silent = true)
         runToken++
         safetyOff()
@@ -243,10 +257,14 @@ class MorseTransmitter(
                     if (runToken != token) return
 
                     controller.setOn(event.on)
+                    if (soundEnabled) {
+                        if (event.on) sidetone.on() else sidetone.off()
+                    }
                     publishProgress(script, index, loop, targetNanos - anchorNanos)
                 }
 
                 controller.setOn(false)
+                sidetone.off()
 
                 if (!loop) {
                     if (runToken == token) _state.value = PlaybackState.Completed(script)
@@ -260,6 +278,7 @@ class MorseTransmitter(
                 anchorNanos = clock.nanos() + compensationNanos
             }
         } finally {
+            sidetone.off()
             if (runToken != token) {
                 controller.setOn(false)
             }

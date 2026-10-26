@@ -26,6 +26,8 @@ data class Settings(
     val brightnessPercent: Int = Brightness.DEFAULT_PERCENT,
     /** 是否保留手电筒亮度：关闭后每次打开手电筒都回到 100%（已调的值仍被记住，重新开启即恢复） */
     val retainTorchBrightness: Boolean = true,
+    /** 发报时是否同步播放滴声（600 Hz 侧音，灯亮即响） */
+    val soundEnabled: Boolean = false,
 ) {
     val timingProfile: TimingProfile
         get() = TimingProfile.forWpm(wpm, compensationMillis)

@@ -27,6 +27,7 @@ class FlashMorseApplication : Application() {
                 container.transmitter.setBrightness(
                     Brightness.percentToFraction(settings.effectiveBrightnessPercent),
                 )
+                container.transmitter.setSoundEnabled(settings.soundEnabled)
             }
         }
     }

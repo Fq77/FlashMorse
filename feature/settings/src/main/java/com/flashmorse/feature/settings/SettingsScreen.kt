@@ -35,6 +35,7 @@ fun SettingsScreen(
     state: SettingsUiState,
     onWpmChange: (Int) -> Unit,
     onRetainBrightnessChange: (Boolean) -> Unit,
+    onSoundEnabledChange: (Boolean) -> Unit,
     onChannelChange: (Int) -> Unit,
     onLoopChange: (Boolean) -> Unit,
     onHapticChange: (Boolean) -> Unit,
@@ -62,6 +63,12 @@ fun SettingsScreen(
                     valueRange = TimingProfile.MIN_WPM.toFloat()..TimingProfile.MAX_WPM.toFloat(),
                     steps = (TimingProfile.MAX_WPM - TimingProfile.MIN_WPM) - 1,
                     valueText = "${state.wpm} WPM",
+                )
+                SwitchPreference(
+                    title = "发报声音",
+                    summary = "发报时同步播放滴声（600 Hz），灯亮即响、灯灭即停",
+                    checked = state.soundEnabled,
+                    onCheckedChange = onSoundEnabledChange,
                 )
                 SwitchPreference(
                     title = "保留手电筒亮度",

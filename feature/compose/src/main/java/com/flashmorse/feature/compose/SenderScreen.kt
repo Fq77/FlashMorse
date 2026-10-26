@@ -696,27 +696,24 @@ private fun TorchScene(fraction: Float, modifier: Modifier = Modifier) {
             center = nearCenter,
         )
 
-        // 3. 光束：拉长的径向渐变椭圆（y 方向 ×2.4），边缘天然羽化，
-        //    与墙面光斑同语汇、无直边轮廓；越亮越长越亮
-        val beamR = w * (0.30f + 0.26f * f)
-        withTransform({
-            translate(left = w / 2f, top = headY)
-            scale(scaleX = 1f, scaleY = 2.4f, pivot = Offset.Zero)
-        }) {
-            val beamCenter = Offset(0f, -beamR * 0.38f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFFFF3D2).copy(alpha = 0.62f * f),
-                        Color(0xFFFFF3D2).copy(alpha = 0f),
-                    ),
-                    center = beamCenter,
-                    radius = beamR,
-                ),
-                radius = beamR,
-                center = beamCenter,
-            )
+        // 3. 光柱：从灯头向上展开的锥形，随亮度变宽变亮（f=0 时几乎不可见）
+        val beamSpread = w * (0.24f + 0.40f * f)
+        val beamPath = Path().apply {
+            moveTo(w / 2f - bodyTopHalf * 0.9f, headY)
+            lineTo(w / 2f + bodyTopHalf * 0.9f, headY)
+            lineTo(w / 2f + beamSpread, -h * 0.02f)
+            lineTo(w / 2f - beamSpread, -h * 0.02f)
+            close()
         }
+        drawPath(
+            path = beamPath,
+            brush = Brush.verticalGradient(
+                listOf(
+                    Color(0xFFFFF3D2).copy(alpha = 0.72f * f),
+                    Color(0xFFFFF3D2).copy(alpha = 0.04f * f),
+                ),
+            ),
+        )
 
         // 4. 灯头顶沿高光线：亮度随 f 全程连续（熄灭时不可见，无恒亮基线）
         drawLine(

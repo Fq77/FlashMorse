@@ -16,6 +16,8 @@ data class SettingsUiState(
     val brightnessPercent: Int = Brightness.DEFAULT_PERCENT,
     /** 是否保留手电筒亮度（关闭后每次打开手电筒都回到 100%） */
     val retainTorchBrightness: Boolean = true,
+    /** 发报时同步播放滴声 */
+    val soundEnabled: Boolean = false,
     val ledAvailable: Boolean = true,
     val supportsStrength: Boolean = false,
     /** 硬件档位上限，用于把百分比换算成"第几档"给用户看 */

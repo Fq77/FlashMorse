@@ -48,6 +48,7 @@ class SettingsRepository(context: Context) {
             prefs[Keys.GlareHint] = next.glareHintShown
             prefs[Keys.Brightness] = Brightness.clampPercent(next.brightnessPercent)
             prefs[Keys.RetainBrightness] = next.retainTorchBrightness
+            prefs[Keys.SoundEnabled] = next.soundEnabled
         }
     }
 
@@ -71,6 +72,10 @@ class SettingsRepository(context: Context) {
         it.copy(retainTorchBrightness = retain)
     }
 
+    suspend fun setSoundEnabled(enabled: Boolean) = update {
+        it.copy(soundEnabled = enabled)
+    }
+
     suspend fun setBrightness(percent: Int) = update {
         it.copy(brightnessPercent = Brightness.clampPercent(percent))
     }
@@ -90,6 +95,7 @@ class SettingsRepository(context: Context) {
             this[Keys.Brightness] ?: Brightness.DEFAULT_PERCENT,
         ),
         retainTorchBrightness = this[Keys.RetainBrightness] ?: true,
+        soundEnabled = this[Keys.SoundEnabled] ?: false,
     )
 
     private object Keys {
@@ -103,5 +109,6 @@ class SettingsRepository(context: Context) {
         val GlareHint = booleanPreferencesKey("glare_hint_shown")
         val Brightness = intPreferencesKey("brightness_percent")
         val RetainBrightness = booleanPreferencesKey("retain_torch_brightness")
+        val SoundEnabled = booleanPreferencesKey("sound_enabled")
     }
 }
