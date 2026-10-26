@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -97,6 +101,7 @@ fun FlashMorseApp(container: AppContainer) {
                         HomeContent(
                             container = container,
                             tab = tab,
+                            onTabSelected = { tabName = it.name },
                             onMessage = showMessage,
                             onOpenManual = { backStack.add(Route.Manual) },
                         )
@@ -203,32 +208,57 @@ private val AppTransition: NavTransition = NavTransitions.MiuixDefault
 private fun HomeContent(
     container: AppContainer,
     tab: HomeTab,
+    onTabSelected: (HomeTab) -> Unit,
     onMessage: (String) -> Unit,
     onOpenManual: () -> Unit,
 ) {
-    when (tab) {
-        HomeTab.Sender -> SenderRoute(
-            settingsRepository = container.settingsRepository,
-            historyRepository = container.historyRepository,
-            transmitter = container.transmitter,
-            thermalGuard = container.thermalGuard,
-            onOpenManual = onOpenManual,
-            onMessage = onMessage,
-        )
+    // 左右滑动切换页面：pager 与底部导航双向同步——
+    // 点导航 → animateScrollToPage；滑页面 → snapshotFlow 回写 tab 状态。
+    val pagerState = rememberPagerState(initialPage = tab.ordinal) { HomeTab.entries.size }
 
-        HomeTab.Library -> LibraryRoute(
-            phraseRepository = container.phraseRepository,
-            historyRepository = container.historyRepository,
-            settingsRepository = container.settingsRepository,
-            transmitter = container.transmitter,
-            onMessage = onMessage,
-        )
+    LaunchedEffect(tab) {
+        if (pagerState.currentPage != tab.ordinal || pagerState.isScrollInProgress) {
+            pagerState.animateScrollToPage(tab.ordinal)
+        }
+    }
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }
+            .collect { page ->
+                val next = HomeTab.entries.getOrNull(page) ?: return@collect
+                if (next != tab) onTabSelected(next)
+            }
+    }
 
-        HomeTab.Learn -> LearnRoute(
-            settingsRepository = container.settingsRepository,
-            transmitter = container.transmitter,
-            onMessage = onMessage,
-        )
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier.fillMaxSize(),
+    ) { page ->
+        when (HomeTab.entries.getOrNull(page)) {
+            HomeTab.Sender -> SenderRoute(
+                settingsRepository = container.settingsRepository,
+                historyRepository = container.historyRepository,
+                transmitter = container.transmitter,
+                thermalGuard = container.thermalGuard,
+                onOpenManual = onOpenManual,
+                onMessage = onMessage,
+            )
+
+            HomeTab.Library -> LibraryRoute(
+                phraseRepository = container.phraseRepository,
+                historyRepository = container.historyRepository,
+                settingsRepository = container.settingsRepository,
+                transmitter = container.transmitter,
+                onMessage = onMessage,
+            )
+
+            HomeTab.Learn -> LearnRoute(
+                settingsRepository = container.settingsRepository,
+                transmitter = container.transmitter,
+                onMessage = onMessage,
+            )
+
+            else -> Unit
+        }
     }
 }
 

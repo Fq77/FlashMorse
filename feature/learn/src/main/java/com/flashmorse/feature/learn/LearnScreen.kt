@@ -175,6 +175,9 @@ private fun DetailCard(
                         .height(12.dp),
                     height = 9.dp,
                     color = colorScheme.primary,
+                    // 未溢出时居中展示；长码（如 @ / & 的 5+ 符号）可横向拖动查看
+                    scrollable = true,
+                    centered = true,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(

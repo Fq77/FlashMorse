@@ -1,7 +1,9 @@
 package com.flashmorse.feature.compose
 
 import android.os.SystemClock
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +42,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
+import com.flashmorse.core.designsystem.component.ThiingsSendIcon
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
@@ -343,20 +352,6 @@ private fun SendRing(
                 size = size,
                 strokeWidth = 8.dp,
             )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        color = colorScheme.primary.copy(alpha = 0.12f),
-                        shape = CircleShape,
-                    )
-                    .border(
-                        width = 1.5.dp,
-                        color = colorScheme.primary.copy(alpha = 0.42f),
-                        shape = CircleShape,
-                    ),
-            )
         }
 
         when {
@@ -373,12 +368,8 @@ private fun SendRing(
                 tint = colorScheme.primary,
             )
 
-            else -> Icon(
-                imageVector = FmIcons.Send,
-                contentDescription = null,
-                modifier = Modifier.size(iconSize),
-                tint = if (state.isEmpty) colorScheme.onSurfaceVariantSummary else colorScheme.primary,
-            )
+            // 空闲态直接展示 3D 图标（thiings.co），不再套圆形背景与描边
+            else -> ThiingsSendIcon(modifier = Modifier.size(iconSize * 1.6f))
         }
     }
 }
@@ -478,33 +469,20 @@ private fun ActionRow(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // SOS 独占一行：这是本应用的道德与安全底线入口，必须比「手动 / 手电筒」更重
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 66.dp),
-            insideMargin = PaddingValues(0.dp),
-            cornerRadius = 20.dp,
-            colors = CardDefaults.defaultColors(
+        // SOS 与「手动发报」保持同一尺寸、同一字号：只有颜色不同（红 = 紧急）
+        Button(
+            onClick = onSosClick,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
                 color = MiuixTheme.colorScheme.error,
                 contentColor = MiuixTheme.colorScheme.onError,
             ),
-            pressFeedbackType = PressFeedbackType.Sink,
-            showIndication = true,
-            onClick = onSosClick,
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                Text(
-                    text = "SOS",
-                    style = MiuixTheme.textStyles.title2,
-                    color = MiuixTheme.colorScheme.onError,
-                )
-            }
+            Text(
+                text = "SOS",
+                style = MiuixTheme.textStyles.body1,
+                color = MiuixTheme.colorScheme.onError,
+            )
         }
 
         // 手电筒常亮已上移到顶栏左侧图标，这里只留手动发报入口
@@ -572,10 +550,12 @@ private fun SenderSosDisclaimerDialog(
 // -------------------------------------------------------------------- 手电筒
 
 /**
- * 手电筒整页界面：灯面颜色随档位变化，上下滑动无级调光。
+ * 手电筒整页界面：完全用 Canvas 绘制的场景——墙面光斑、光束、筒身、
+ * 筒身进度槽、底部开关，全部元素的**位置固定**，只有亮度随 [fraction] 连续变化。
  *
- * 拖动过程走 [onPreview]（即时驱动 LED 与界面），松手才走 [onCommit] 落盘——
- * 反过来（每次位移都写 DataStore）会把磁盘写放大到每秒几十次。
+ * 交互：在场景任意位置上下拖动无级调光；拖动过程走 [onPreview]（即时驱动 LED
+ * 与界面），松手才走 [onCommit] 落盘——反过来（每次位移都写 DataStore）
+ * 会把磁盘写放大到每秒几十次。
  */
 @Composable
 private fun TorchScreen(
@@ -584,100 +564,202 @@ private fun TorchScreen(
     onCommit: (Int) -> Unit,
     onTurnOff: () -> Unit,
 ) {
-    val colorScheme = MiuixTheme.colorScheme
-    var dragPercent by remember { mutableStateOf<Int?>(null) }
+    var dragFraction by remember { mutableStateOf<Float?>(null) }
     // 已提交值单独持有：拖动结束到 DataStore 往返之间有一个空窗，
     // 若直接回落到 state.brightnessPercent，读数会先跳回旧值再跳到新值。
     var committedPercent by remember { mutableIntStateOf(state.brightnessPercent) }
     LaunchedEffect(state.brightnessPercent) { committedPercent = state.brightnessPercent }
-    val displayPercent = dragPercent ?: committedPercent
-    val fraction = Brightness.percentToFraction(displayPercent)
+    val fraction = dragFraction ?: Brightness.percentToFraction(committedPercent)
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .imePadding()
-            .padding(horizontal = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .background(Color(0xFF0A0806))
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        dragFraction?.let { f ->
+                            val p = (f * 100f).roundToInt()
+                            onCommit(p)
+                            committedPercent = p
+                        }
+                        dragFraction = null
+                    },
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        val base = dragFraction ?: Brightness.percentToFraction(committedPercent)
+                        // 整个场景高度对应 0–100%，拖动全程无级、无跳变
+                        val next = (base - dragAmount / size.height).coerceIn(0f, 1f)
+                        dragFraction = next
+                        onPreview((next * 100f).roundToInt())
+                    },
+                )
+            },
     ) {
+        TorchScene(fraction = fraction, modifier = Modifier.fillMaxSize())
+
+        // 底部圆形开关（位置固定）：熄灭时灰、点亮时白，参考图的形态
         Box(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(26.dp))
-                .background(lampColor(fraction))
-                .pointerInput(state.brightnessPercent) {
-                    detectVerticalDragGestures(
-                        onDragEnd = {
-                            dragPercent?.let {
-                                onCommit(it)
-                                committedPercent = it
-                            }
-                            dragPercent = null
-                        },
-                        onVerticalDrag = { change, dragAmount ->
-                            change.consume()
-                            val current = dragPercent ?: state.brightnessPercent
-                            // 整个灯面高度对应 0–100%：一格满滑正好覆盖全部范围
-                            val delta = (dragAmount / size.height * 100f).roundToInt()
-                            val next = (current - delta)
-                                .coerceIn(Brightness.MIN_PERCENT, Brightness.MAX_PERCENT)
-                            if (next != current) {
-                                dragPercent = next
-                                onPreview(next)
-                            }
-                        },
-                    )
-                },
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 28.dp)
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.30f + 0.70f * fraction))
+                .clickable(onClick = onTurnOff),
             contentAlignment = Alignment.Center,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "$displayPercent%",
-                    style = MiuixTheme.textStyles.title1,
-                    color = onLampColor(fraction),
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "手电筒亮度 · 上下滑动调节",
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = onLampColor(fraction).copy(alpha = 0.8f),
-                )
-            }
-        }
-
-        Button(
-            onClick = onTurnOff,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                color = colorScheme.error,
-                contentColor = colorScheme.onError,
-            ),
-        ) {
-            Text(
-                text = "关闭手电筒",
-                style = MiuixTheme.textStyles.body1,
-                color = colorScheme.onError,
+            TorchGlyph(
+                modifier = Modifier.size(26.dp),
+                color = Color(0xFF16130F).copy(alpha = 0.55f + 0.45f * fraction),
             )
         }
-
-        Text(
-            text = "灯已常亮，可随时离开本页；亮度只作用于手电筒通道",
-            style = MiuixTheme.textStyles.footnote2,
-            color = colorScheme.onSurfaceVariantSummary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 
-/** 灯面颜色：暗档是暖黑，亮档接近暖白，颜色本身承担"亮度指示器"的角色。 */
-private fun lampColor(fraction: Float): Color =
-    lerp(Color(0xFF17140E), Color(0xFFFFDF9E), (0.18f + 0.82f * fraction).coerceIn(0f, 1f))
+/**
+ * 手电筒场景：一层 Canvas 从后往前画「墙面 → 光斑 → 光束 → 筒身 → 进度槽」。
+ * 所有几何只依赖画布尺寸，所有颜色/透明度/半径都由 [fraction] 连续插值，
+ * 因此亮度变化全程平滑、无任何元素位移。
+ */
+@Composable
+private fun TorchScene(fraction: Float, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val f = fraction.coerceIn(0f, 1f)
+        val headY = h * 0.42f          // 灯头顶沿
+        val bodyBottom = h * 0.78f
+        val bodyTopHalf = w * 0.28f    // 筒身顶宽的一半
+        val bodyBotHalf = w * 0.36f    // 筒身底宽的一半
 
-/** 灯面上的文字颜色：灯面越亮文字越深，保证任何档位下都可读。 */
-private fun onLampColor(fraction: Float): Color =
-    if (fraction > 0.6f) Color(0xFF3B2F10) else Color(0xFFE9DDB9)
+        // 1. 墙面：暖色底亮度随 f 上升（熄灭时近黑）
+        drawRect(
+            brush = Brush.verticalGradient(
+                listOf(
+                    lerp(Color(0xFF070605), Color(0xFF33281A), f),
+                    lerp(Color(0xFF050404), Color(0xFF241C11), f),
+                ),
+            ),
+        )
+
+        // 2. 墙面光斑：圆心在灯头，半径与透明度同步扩大——「照到墙上的那圈光」
+        val glowR = w * (0.20f + 0.50f * f)
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFFFFE7B0).copy(alpha = 0.88f * f),
+                    Color(0xFFFFE7B0).copy(alpha = 0f),
+                ),
+                center = Offset(w / 2f, headY),
+                radius = glowR,
+            ),
+            radius = glowR,
+            center = Offset(w / 2f, headY),
+        )
+
+        // 3. 光束锥：从灯头向上展开，越亮张角越大（f=0 时几乎不可见）
+        val beamSpread = w * (0.24f + 0.40f * f)
+        val beamPath = Path().apply {
+            moveTo(w / 2f - bodyTopHalf * 0.9f, headY)
+            lineTo(w / 2f + bodyTopHalf * 0.9f, headY)
+            lineTo(w / 2f + beamSpread, -h * 0.02f)
+            lineTo(w / 2f - beamSpread, -h * 0.02f)
+            close()
+        }
+        drawPath(
+            path = beamPath,
+            brush = Brush.verticalGradient(
+                listOf(
+                    Color(0xFFFFF3D2).copy(alpha = 0.72f * f),
+                    Color(0xFFFFF3D2).copy(alpha = 0.04f * f),
+                ),
+            ),
+        )
+
+        // 4. 灯头顶沿高光线：亮度感知的主要来源之一
+        drawLine(
+            color = Color(0xFFFFF6DC).copy(alpha = 0.22f + 0.78f * f),
+            start = Offset(w / 2f - bodyTopHalf * 0.92f, headY),
+            end = Offset(w / 2f + bodyTopHalf * 0.92f, headY),
+            strokeWidth = 2.dp.toPx(),
+        )
+
+        // 5. 筒身（梯形）：底色随亮度轻微提升，再叠两侧暗角把主体"立"出来
+        val bodyPath = Path().apply {
+            moveTo(w / 2f - bodyTopHalf, headY)
+            lineTo(w / 2f + bodyTopHalf, headY)
+            lineTo(w / 2f + bodyBotHalf, bodyBottom)
+            lineTo(w / 2f - bodyBotHalf, bodyBottom)
+            close()
+        }
+        drawPath(bodyPath, lerp(Color(0xFF191410), Color(0xFF554324), 0.25f + 0.75f * f))
+        drawPath(
+            path = bodyPath,
+            brush = Brush.horizontalGradient(
+                listOf(
+                    Color.Black.copy(alpha = 0.38f),
+                    Color.Transparent,
+                    Color.Black.copy(alpha = 0.38f),
+                ),
+            ),
+        )
+
+        // 6. 筒身进度槽（固定）+ 从底部向上生长的填充条
+        val slotW = 5.dp.toPx()
+        val slotTop = headY + (bodyBottom - headY) * 0.18f
+        val slotBottom = bodyBottom - (bodyBottom - headY) * 0.18f
+        val slotH = slotBottom - slotTop
+        drawRoundRect(
+            color = Color(0xFF0F0C08).copy(alpha = 0.92f),
+            topLeft = Offset(w / 2f - slotW / 2f, slotTop),
+            size = Size(slotW, slotH),
+            cornerRadius = CornerRadius(slotW / 2f, slotW / 2f),
+        )
+        val fillH = slotH * f
+        if (fillH > 1f) {
+            drawRoundRect(
+                color = Color(0xFFFFF6DC).copy(alpha = 0.45f + 0.55f * f),
+                topLeft = Offset(w / 2f - slotW / 2f, slotBottom - fillH),
+                size = Size(slotW, fillH),
+                cornerRadius = CornerRadius(slotW / 2f, slotW / 2f),
+            )
+        }
+    }
+}
+
+/** 手电图形：头部梯形 + 三道光线 + 筒身圆角矩形，画在底部圆形开关里。 */
+@Composable
+private fun TorchGlyph(modifier: Modifier = Modifier, color: Color) {
+    Canvas(modifier = modifier) {
+        val u = size.width / 24f
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        val head = Path().apply {
+            moveTo(cx - 9 * u, cy - 7 * u)
+            lineTo(cx + 9 * u, cy - 7 * u)
+            lineTo(cx + 5.5f * u, cy - 1 * u)
+            lineTo(cx - 5.5f * u, cy - 1 * u)
+            close()
+        }
+        drawPath(head, color)
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(cx - 3.5f * u, cy - 1 * u),
+            size = Size(7 * u, 11 * u),
+            cornerRadius = CornerRadius(2 * u, 2 * u),
+        )
+        for (dx in listOf(-6f, 0f, 6f)) {
+            drawLine(
+                color = color,
+                start = Offset(cx + dx * u, cy - 9.5f * u),
+                end = Offset(cx + dx * u, cy - 12.5f * u),
+                strokeWidth = 1.6f * u,
+                cap = StrokeCap.Round,
+            )
+        }
+    }
+}
 
 // ---------------------------------------------------------------------- helpers
 

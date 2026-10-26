@@ -1,6 +1,9 @@
 package com.flashmorse.app.navigation
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import com.flashmorse.core.designsystem.icon.FmIcons
 import top.yukonga.miuix.kmp.basic.Icon
@@ -35,17 +38,12 @@ fun HomePage(
             SmallTopAppBar(
                 title = title,
                 navigationIcon = {
-                    // 手电筒开关：从页面按钮上移到全局可达的位置；
-                    // 点亮态用主题色强调，一眼可辨当前灯态。
+                    // 手电筒开关：thiings.co 的 3D 手电图标，点亮态全不透明、
+                    // 熄灭态半透明——位图无法 tint，用 alpha 表达状态。
                     IconButton(onClick = onToggleTorch) {
-                        Icon(
-                            imageVector = FmIcons.Torch,
-                            contentDescription = if (torchOn) "关闭手电筒" else "手电筒常亮",
-                            tint = if (torchOn) {
-                                top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.primary
-                            } else {
-                                top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.onBackground
-                            },
+                        com.flashmorse.core.designsystem.component.ThiingsFlashlightIcon(
+                            lit = torchOn,
+                            modifier = Modifier.size(30.dp),
                         )
                     }
                 },
