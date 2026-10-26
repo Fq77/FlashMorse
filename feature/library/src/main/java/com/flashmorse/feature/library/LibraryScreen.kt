@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,7 +38,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import com.flashmorse.core.designsystem.component.MorsePattern
 import com.flashmorse.core.designsystem.component.SectionHeader
 import com.flashmorse.core.designsystem.icon.FmIcons
 import com.flashmorse.core.model.HistoryEntry
@@ -413,20 +411,6 @@ private fun PhraseRow(
                             text = "内置",
                             style = MiuixTheme.textStyles.footnote2,
                             color = colorScheme.primary,
-                        )
-                    }
-                    // 点划预览紧贴标题；宽度按报文长度自适应，SOS 这类短报文完整显示
-                    if (item.previewPattern.isNotEmpty()) {
-                        Spacer(modifier = Modifier.width(10.dp))
-                        // 超出可视宽度的电码可横向拖动查看（如 NEED HELP）
-                        MorsePattern(
-                            pattern = item.previewPattern,
-                            modifier = Modifier
-                                .widthIn(max = 140.dp)
-                                .height(5.dp),
-                            height = 5.dp,
-                            color = colorScheme.onSurfaceContainerVariant,
-                            scrollable = true,
                         )
                     }
                 }

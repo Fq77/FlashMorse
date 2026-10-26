@@ -1,6 +1,7 @@
 package com.flashmorse.core.designsystem.component
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -10,6 +11,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.flashmorse.core.designsystem.R
+import androidx.compose.foundation.layout.Box
 
 /**
  * thiings.co 的 3D 图标（https://www.thiings.co）。
@@ -25,14 +27,21 @@ fun ThiingsFlashlightIcon(
     lit: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Image(
-        painter = painterResource(R.drawable.ic_thiings_flashlight),
-        contentDescription = if (lit) "关闭手电筒" else "手电筒常亮",
-        contentScale = ContentScale.Crop,
+    // thiings 图标自带烘焙的深色底，在深色顶栏上直接放会"融进背景"，
+    // 垫一层浅色圆角底把主体托出来；点亮/熄灭仍用 alpha 表达。
+    Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .alpha(if (lit) 1f else 0.45f),
-    )
+            .background(androidx.compose.ui.graphics.Color(0xFFE8E2D8))
+            .alpha(if (lit) 1f else 0.62f),
+    ) {
+        Image(
+            painter = painterResource(R.drawable.ic_thiings_flashlight),
+            contentDescription = if (lit) "关闭手电筒" else "手电筒常亮",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.matchParentSize(),
+        )
+    }
 }
 
 /** 纸飞机（Paper Airplane）：发报页空状态的「点按发报」。 */

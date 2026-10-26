@@ -87,7 +87,16 @@ fun FlashMorseApp(container: AppContainer) {
                     onTabSelected = { tabName = it.name },
                     onOpenSettings = { backStack.add(Route.Settings) },
                     torchOn = torchLit,
-                    onToggleTorch = { container.transmitter.setConstantLight(!torchLit) },
+                    onToggleTorch = {
+                        if (tab != HomeTab.Sender) {
+                            // 非发报页点灯：跳转发报页（顶栏标题随 tab 更新）并点亮，
+                            // 让用户落在可调光的手电筒页上，而不是停在列表页"盲开"
+                            tabName = HomeTab.Sender.name
+                            container.transmitter.setConstantLight(true)
+                        } else {
+                            container.transmitter.setConstantLight(!torchLit)
+                        }
+                    },
                 ) { padding ->
                     Box(
                         modifier = Modifier

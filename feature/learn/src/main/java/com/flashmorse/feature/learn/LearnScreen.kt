@@ -117,9 +117,11 @@ private fun LetterCell(
             MorsePattern(
                 pattern = letter.pattern,
                 modifier = Modifier
-                    .width(44.dp)
+                    .fillMaxWidth()
                     .height(4.dp),
                 height = 2.8.dp,
+                scrollable = true,
+                centered = true,
                 color = if (selected) {
                     colorScheme.primary
                 } else {
@@ -175,9 +177,6 @@ private fun DetailCard(
                         .height(12.dp),
                     height = 9.dp,
                     color = colorScheme.primary,
-                    // 未溢出时居中展示；长码（如 @ / & 的 5+ 符号）可横向拖动查看
-                    scrollable = true,
-                    centered = true,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(

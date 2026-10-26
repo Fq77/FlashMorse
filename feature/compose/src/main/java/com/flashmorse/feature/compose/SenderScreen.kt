@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import com.flashmorse.core.designsystem.component.ThiingsSendIcon
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -564,6 +565,7 @@ private fun TorchScreen(
     onCommit: (Int) -> Unit,
     onTurnOff: () -> Unit,
 ) {
+    val colorScheme = MiuixTheme.colorScheme
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     // 已提交值单独持有：拖动结束到 DataStore 往返之间有一个空窗，
     // 若直接回落到 state.brightnessPercent，读数会先跳回旧值再跳到新值。
@@ -588,8 +590,8 @@ private fun TorchScreen(
                     onVerticalDrag = { change, dragAmount ->
                         change.consume()
                         val base = dragFraction ?: Brightness.percentToFraction(committedPercent)
-                        // 整个场景高度对应 0–100%，拖动全程无级、无跳变
-                        val next = (base - dragAmount / size.height).coerceIn(0f, 1f)
+                        // 拖 60% 场景高度即覆盖 0–100%：阻尼偏小，调节更跟手
+                        val next = (base - dragAmount / size.height * 1.6f).coerceIn(0f, 1f)
                         dragFraction = next
                         onPreview((next * 100f).roundToInt())
                     },
@@ -598,20 +600,29 @@ private fun TorchScreen(
     ) {
         TorchScene(fraction = fraction, modifier = Modifier.fillMaxSize())
 
-        // 底部圆形开关（位置固定）：熄灭时灰、点亮时白，参考图的形态
-        Box(
+        // 底部关闭钮：Miuix 红实色 + Close 图标（与全局"停止/删除"同一色彩语义）
+        Button(
+            onClick = onTurnOff,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 28.dp)
-                .size(64.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.30f + 0.70f * fraction))
-                .clickable(onClick = onTurnOff),
-            contentAlignment = Alignment.Center,
+                .padding(start = 12.dp, end = 12.dp, bottom = 20.dp)
+                .fillMaxWidth()
+                .height(58.dp),
+            colors = ButtonDefaults.buttonColors(
+                color = colorScheme.error,
+                contentColor = colorScheme.onError,
+            ),
         ) {
-            TorchGlyph(
-                modifier = Modifier.size(26.dp),
-                color = Color(0xFF16130F).copy(alpha = 0.55f + 0.45f * fraction),
+            Icon(
+                imageVector = FmIcons.Close,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "关闭手电筒",
+                style = MiuixTheme.textStyles.body1,
+                color = colorScheme.onError,
             )
         }
     }
@@ -628,10 +639,10 @@ private fun TorchScene(fraction: Float, modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val f = fraction.coerceIn(0f, 1f)
-        val headY = h * 0.42f          // 灯头顶沿
-        val bodyBottom = h * 0.78f
-        val bodyTopHalf = w * 0.28f    // 筒身顶宽的一半
-        val bodyBotHalf = w * 0.36f    // 筒身底宽的一半
+        val headY = h * 0.40f          // 灯头顶沿
+        val bodyBottom = h * 0.84f     // 筒身更修长
+        val bodyTopHalf = w * 0.34f    // 前（灯头）宽
+        val bodyBotHalf = w * 0.29f    // 后（尾）窄：手电筒前宽后窄，差值收敛
 
         // 1. 墙面：暖色底亮度随 f 上升（熄灭时近黑）
         drawRect(
@@ -643,20 +654,23 @@ private fun TorchScene(fraction: Float, modifier: Modifier = Modifier) {
             ),
         )
 
-        // 2. 墙面光斑：圆心在灯头，半径与透明度同步扩大——「照到墙上的那圈光」
+        // 2. 墙面光斑：只显示在灯头**以上**的区域（照亮的墙面），
+        //    用裁剪避免光晕叠在筒身上形成"中间向四周发散"的观感
         val glowR = w * (0.20f + 0.50f * f)
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    Color(0xFFFFE7B0).copy(alpha = 0.88f * f),
-                    Color(0xFFFFE7B0).copy(alpha = 0f),
+        clipRect(left = 0f, top = 0f, right = w, bottom = headY) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFFFE7B0).copy(alpha = 0.88f * f),
+                        Color(0xFFFFE7B0).copy(alpha = 0f),
+                    ),
+                    center = Offset(w / 2f, headY),
+                    radius = glowR,
                 ),
-                center = Offset(w / 2f, headY),
                 radius = glowR,
-            ),
-            radius = glowR,
-            center = Offset(w / 2f, headY),
-        )
+                center = Offset(w / 2f, headY),
+            )
+        }
 
         // 3. 光束锥：从灯头向上展开，越亮张角越大（f=0 时几乎不可见）
         val beamSpread = w * (0.24f + 0.40f * f)
@@ -728,38 +742,7 @@ private fun TorchScene(fraction: Float, modifier: Modifier = Modifier) {
     }
 }
 
-/** 手电图形：头部梯形 + 三道光线 + 筒身圆角矩形，画在底部圆形开关里。 */
-@Composable
-private fun TorchGlyph(modifier: Modifier = Modifier, color: Color) {
-    Canvas(modifier = modifier) {
-        val u = size.width / 24f
-        val cx = size.width / 2f
-        val cy = size.height / 2f
-        val head = Path().apply {
-            moveTo(cx - 9 * u, cy - 7 * u)
-            lineTo(cx + 9 * u, cy - 7 * u)
-            lineTo(cx + 5.5f * u, cy - 1 * u)
-            lineTo(cx - 5.5f * u, cy - 1 * u)
-            close()
-        }
-        drawPath(head, color)
-        drawRoundRect(
-            color = color,
-            topLeft = Offset(cx - 3.5f * u, cy - 1 * u),
-            size = Size(7 * u, 11 * u),
-            cornerRadius = CornerRadius(2 * u, 2 * u),
-        )
-        for (dx in listOf(-6f, 0f, 6f)) {
-            drawLine(
-                color = color,
-                start = Offset(cx + dx * u, cy - 9.5f * u),
-                end = Offset(cx + dx * u, cy - 12.5f * u),
-                strokeWidth = 1.6f * u,
-                cap = StrokeCap.Round,
-            )
-        }
-    }
-}
+
 
 // ---------------------------------------------------------------------- helpers
 
