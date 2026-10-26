@@ -7,8 +7,12 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -45,8 +49,14 @@ fun MorseStream(
 
     BoxWithConstraints(modifier = modifier) {
         val availableDp = maxWidth.value
-        val target = remember(widths, activeIndex, availableDp) {
+        // 空闲时允许手动横向拖动（报文长于视口时 otherwise 看不到尾部）；
+        // 发送中切回自动跟随，拖动偏移作废。
+        var panDp by remember(cells) { mutableFloatStateOf(0f) }
+        val autoFollow = activeIndex >= 0
+        val target = if (autoFollow) {
             computeStart(widths, activeIndex, availableDp)
+        } else {
+            panDp.coerceIn(0f, (widths.sum() - availableDp).coerceAtLeast(0f))
         }
         val startX by animateFloatAsState(
             targetValue = target,
@@ -54,7 +64,21 @@ fun MorseStream(
             label = "morseStreamScroll",
         )
 
-        Canvas(modifier = Modifier.fillMaxSize()) {
+
+
+        val gesture = if (!autoFollow) {
+            Modifier.pointerInput(cells, availableDp) {
+                detectHorizontalDragGestures { change, dragAmount ->
+                    change.consume()
+                    panDp = (panDp - dragAmount / density)
+                        .coerceIn(0f, (widths.sum() - availableDp).coerceAtLeast(0f))
+                }
+            }
+        } else {
+            Modifier
+        }
+
+        Canvas(modifier = Modifier.fillMaxSize().then(gesture)) {
             val barPx = metrics.barHeight.toPx()
             val radius = CornerRadius(barPx / 2f, barPx / 2f)
             val centerY = size.height / 2f

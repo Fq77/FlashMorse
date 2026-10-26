@@ -116,10 +116,7 @@ fun SenderScreen(
             .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // SOS 循环与报文无关：此时不显示输入框，避免"发送的是 SOS 还是输入框内容"的歧义
-        if (!(state.isSending && state.isLooping)) {
-            MessageInput(state = state, onMessageChange = onMessageChange)
-        }
+        MessageInput(state = state, onMessageChange = onMessageChange)
 
         SendCard(
             state = state,
@@ -161,9 +158,11 @@ private fun MessageInput(
     val keyboard = LocalSoftwareKeyboardController.current
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        TextField(
-            value = state.message,
-            onValueChange = onMessageChange,
+        // 发报过程中输入框隐藏（此时它只是干扰），摩斯流保留并自动跟随播放位置
+        if (!state.isSending) {
+            TextField(
+                value = state.message,
+                onValueChange = onMessageChange,
             label = "报文",
             useLabelAsPlaceholder = true,
             singleLine = true,
@@ -172,7 +171,8 @@ private fun MessageInput(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }),
             modifier = Modifier.fillMaxWidth(),
-        )
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -452,13 +452,27 @@ private fun ActionRow(
 ) {
     if (state.isSending) {
         // 暂停已移除：对光信号来说"暂停几秒"对接收方等于乱码，只保留明确的停止。
-        IconActionTile(
-            icon = FmIcons.Close,
-            contentDescription = "停止发送",
-            onClick = onStop,
+        // 实色圆按钮 + 红色：与"删除/中止"同一套色彩语义。
+        Box(
             modifier = Modifier.fillMaxWidth(),
-            highlighted = true,
-        )
+            contentAlignment = Alignment.Center,
+        ) {
+            Button(
+                onClick = onStop,
+                modifier = Modifier.size(76.dp),
+                cornerRadius = 38.dp,
+                colors = ButtonDefaults.buttonColors(
+                    color = MiuixTheme.colorScheme.error,
+                    contentColor = MiuixTheme.colorScheme.onError,
+                ),
+            ) {
+                Icon(
+                    imageVector = FmIcons.Close,
+                    contentDescription = "停止发送",
+                    modifier = Modifier.size(32.dp),
+                )
+            }
+        }
         return
     }
 
@@ -488,12 +502,6 @@ private fun ActionRow(
                 Text(
                     text = "SOS",
                     style = MiuixTheme.textStyles.title2,
-                    color = MiuixTheme.colorScheme.onError,
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "循环求救",
-                    style = MiuixTheme.textStyles.footnote1,
                     color = MiuixTheme.colorScheme.onError,
                 )
             }
@@ -531,39 +539,6 @@ private fun PrimaryAction(
             style = MiuixTheme.textStyles.body1,
             color = MiuixTheme.colorScheme.onPrimary,
         )
-    }
-}
-
-@Composable
-private fun IconActionTile(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    highlighted: Boolean = false,
-) {
-    val colorScheme = MiuixTheme.colorScheme
-
-    Card(
-        modifier = modifier.heightIn(min = 56.dp),
-        insideMargin = PaddingValues(0.dp),
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
-        onClick = onClick,
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                modifier = Modifier.size(24.dp),
-                tint = if (highlighted) colorScheme.primary else colorScheme.onSurfaceContainer,
-            )
-        }
     }
 }
 

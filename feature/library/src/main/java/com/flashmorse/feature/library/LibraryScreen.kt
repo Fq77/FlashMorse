@@ -98,17 +98,16 @@ fun LibraryScreen(
                     contentPadding = PaddingValues(bottom = 104.dp),
                 ) {
                     item {
-                        Column {
-                            SectionHeader(text = "短语库")
-                            // 操作提示紧跟在分组标题下方：它说明的是「这一整块列表怎么用」，
-                            // 放在列表末尾既容易被 FAB 挤开，也要滚到底才看得到。
-                            Text(
-                                text = "点按立即发送 · 长按管理",
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = colorScheme.onSurfaceVariantSummary,
-                                modifier = Modifier.padding(start = 28.dp, end = 28.dp),
-                            )
-                        }
+                        SectionHeader(
+                            text = "短语库",
+                            trailing = {
+                                Text(
+                                    text = "点击立即发送，长按移动位置，左滑删除",
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = colorScheme.onSurfaceVariantSummary,
+                                )
+                            },
+                        )
                     }
                     if (state.phrases.isEmpty()) {
                         item { EmptyHint("还没有短语，点右下角 + 新建一条") }
@@ -457,12 +456,19 @@ private fun PlayingBanner(
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = onStop) {
+            Button(
+                onClick = onStop,
+                modifier = Modifier.size(38.dp),
+                cornerRadius = 19.dp,
+                colors = ButtonDefaults.buttonColors(
+                    color = MiuixTheme.colorScheme.error,
+                    contentColor = MiuixTheme.colorScheme.onError,
+                ),
+            ) {
                 Icon(
                     imageVector = FmIcons.Close,
                     contentDescription = "停止发送",
-                    modifier = Modifier.size(20.dp),
-                    tint = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }

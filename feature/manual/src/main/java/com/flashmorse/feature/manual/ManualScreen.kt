@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -193,28 +194,27 @@ fun ManualScreen(
             SmallTile(
                 icon = FmIcons.Undo,
                 label = "退格",
+                container = colorScheme.secondaryContainer,
+                content = colorScheme.onSecondaryContainer,
                 onClick = onBackspace,
                 modifier = Modifier.weight(1f),
             )
             SmallTile(
                 icon = FmIcons.Delete,
                 label = "清空",
+                container = colorScheme.secondaryContainer,
+                content = colorScheme.onSecondaryContainer,
                 onClick = onClear,
                 modifier = Modifier.weight(1f),
             )
-            Button(
+            SmallTile(
+                icon = FmIcons.Send,
+                label = "发送",
+                container = colorScheme.primary,
+                content = colorScheme.onPrimary,
                 onClick = onSend,
-                modifier = Modifier
-                    .weight(1.2f)
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColorsPrimary(),
-            ) {
-                Icon(
-                    imageVector = FmIcons.Send,
-                    contentDescription = "发送",
-                    modifier = Modifier.size(22.dp),
-                )
-            }
+                modifier = Modifier.weight(1f),
+            )
         }
 
         Spacer(modifier = Modifier.height(2.dp))
@@ -225,27 +225,22 @@ fun ManualScreen(
 private fun SmallTile(
     icon: ImageVector,
     label: String,
+    container: Color,
+    content: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = modifier.heightIn(min = 52.dp),
-        insideMargin = PaddingValues(0.dp),
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
-        onClick = onClick,
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 15.dp),
-            contentAlignment = Alignment.Center,
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Button(
+            onClick = onClick,
+            modifier = Modifier.size(58.dp),
+            cornerRadius = 29.dp,
+            colors = ButtonDefaults.buttonColors(color = container, contentColor = content),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                modifier = Modifier.size(22.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceContainer,
+                modifier = Modifier.size(24.dp),
             )
         }
     }
