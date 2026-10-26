@@ -27,21 +27,13 @@ fun ThiingsFlashlightIcon(
     lit: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    // thiings 图标自带烘焙的深色底，在深色顶栏上直接放会"融进背景"，
-    // 垫一层浅色圆角底把主体托出来；点亮/熄灭仍用 alpha 表达。
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(androidx.compose.ui.graphics.Color(0xFFE8E2D8))
-            .alpha(if (lit) 1f else 0.62f),
-    ) {
-        Image(
-            painter = painterResource(R.drawable.ic_thiings_flashlight),
-            contentDescription = if (lit) "关闭手电筒" else "手电筒常亮",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.matchParentSize(),
-        )
-    }
+    // 资源已做透明底处理（去除 thiings 原图的烘焙深色背景）并整体提亮，
+    // 深色顶栏上可直接辨识；点亮/熄灭用 alpha 表达。
+    Image(
+        painter = painterResource(R.drawable.ic_thiings_flashlight),
+        contentDescription = if (lit) "关闭手电筒" else "手电筒常亮",
+        modifier = modifier.alpha(if (lit) 1f else 0.55f),
+    )
 }
 
 /** 纸飞机（Paper Airplane）：发报页空状态的「点按发报」。 */
