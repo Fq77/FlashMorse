@@ -29,8 +29,7 @@ fun HomePage(
     selectedTab: HomeTab,
     onTabSelected: (HomeTab) -> Unit,
     onOpenSettings: () -> Unit,
-    torchOn: Boolean,
-    onToggleTorch: () -> Unit,
+    onOpenSurvival: () -> Unit,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
@@ -38,12 +37,11 @@ fun HomePage(
             SmallTopAppBar(
                 title = title,
                 navigationIcon = {
-                    // 手电筒开关：thiings.co 的 3D 手电图标，点亮态全不透明、
-                    // 熄灭态半透明——位图无法 tint，用 alpha 表达状态。
-                    IconButton(onClick = onToggleTorch) {
-                        com.flashmorse.core.designsystem.component.ThiingsFlashlightIcon(
-                            lit = torchOn,
-                            modifier = Modifier.size(30.dp),
+                    // 求生与求救指南：应急手册入口，任何时候可达
+                    IconButton(onClick = onOpenSurvival) {
+                        Icon(
+                            imageVector = FmIcons.Info,
+                            contentDescription = "求生与求救指南",
                         )
                     }
                 },

@@ -69,9 +69,6 @@ fun FlashMorseApp(container: AppContainer) {
         onDispose { view.keepScreenOn = false }
     }
 
-    // 手电筒灯态：顶栏开关与手电筒页共用这一个真源
-    val torchLit by container.transmitter.torchLit.collectAsStateWithLifecycle()
-
     Box(modifier = Modifier.fillMaxSize()) {
         NavDisplay(
             backStack = backStack,
@@ -86,17 +83,7 @@ fun FlashMorseApp(container: AppContainer) {
                     selectedTab = tab,
                     onTabSelected = { tabName = it.name },
                     onOpenSettings = { backStack.add(Route.Settings) },
-                    torchOn = torchLit,
-                    onToggleTorch = {
-                        if (tab != HomeTab.Sender) {
-                            // 非发报页点灯：跳转发报页（顶栏标题随 tab 更新）并点亮，
-                            // 让用户落在可调光的手电筒页上，而不是停在列表页"盲开"
-                            tabName = HomeTab.Sender.name
-                            container.transmitter.setConstantLight(true)
-                        } else {
-                            container.transmitter.setConstantLight(!torchLit)
-                        }
-                    },
+                    onOpenSurvival = { backStack.add(Route.Survival) },
                 ) { padding ->
                     Box(
                         modifier = Modifier
@@ -169,6 +156,14 @@ fun FlashMorseApp(container: AppContainer) {
                 }
             }
 
+            entry<Route.Survival> {
+                DetailPage(title = "求生与求救指南", onBack = { backStack.removeLastOrNull() }) { padding ->
+                    PageBody(padding) {
+                        com.flashmorse.feature.learn.SurvivalScreen(modifier = Modifier)
+                    }
+                }
+            }
+
             entry<Route.About> {
                 DetailPage(title = "关于闪光摩斯", onBack = { backStack.removeLastOrNull() }) { padding ->
                     PageBody(padding) {
@@ -225,13 +220,17 @@ private fun HomeContent(
     // 点导航 → animateScrollToPage；滑页面 → snapshotFlow 回写 tab 状态。
     val pagerState = rememberPagerState(initialPage = tab.ordinal) { HomeTab.entries.size }
 
+    // 双向同步用 settledPage（动画完全落定才更新）而不是 currentPage：
+    // currentPage 在滑动中途就会跳到最近邻页，用它回写 tab 会让
+    // LaunchedEffect(tab) 反向 animateScrollToPage，两个动画互相拉扯——
+    // 表现为"点对照页结果卡在短语与对照之间"。
     LaunchedEffect(tab) {
-        if (pagerState.currentPage != tab.ordinal || pagerState.isScrollInProgress) {
+        if (pagerState.settledPage != tab.ordinal) {
             pagerState.animateScrollToPage(tab.ordinal)
         }
     }
     LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }
+        snapshotFlow { pagerState.settledPage }
             .collect { page ->
                 val next = HomeTab.entries.getOrNull(page) ?: return@collect
                 if (next != tab) onTabSelected(next)

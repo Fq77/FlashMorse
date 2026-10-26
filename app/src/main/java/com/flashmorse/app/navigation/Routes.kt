@@ -31,6 +31,10 @@ sealed interface Route : NavKey {
 
     @Serializable
     data object About : Route
+
+    /** 求生与求救指南（顶栏「关于」图标进入）。 */
+    @Serializable
+    data object Survival : Route
 }
 
 /** 底部导航的一级入口（设置已移到顶栏，不再占底栏）。 */

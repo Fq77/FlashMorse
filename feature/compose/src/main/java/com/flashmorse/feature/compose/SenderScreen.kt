@@ -44,7 +44,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import com.flashmorse.core.designsystem.component.ThiingsSendIcon
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -473,7 +475,9 @@ private fun ActionRow(
         // SOS 与「手动发报」保持同一尺寸、同一字号：只有颜色不同（红 = 紧急）
         Button(
             onClick = onSosClick,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp),
             colors = ButtonDefaults.buttonColors(
                 color = MiuixTheme.colorScheme.error,
                 contentColor = MiuixTheme.colorScheme.onError,
@@ -486,12 +490,18 @@ private fun ActionRow(
             )
         }
 
-        // 手电筒常亮已上移到顶栏左侧图标，这里只留手动发报入口
-        PrimaryAction(
-            label = "手动发报",
-            onClick = onOpenManual,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PrimaryAction(
+                label = "手动发报",
+                onClick = onOpenManual,
+                modifier = Modifier.weight(1f),
+            )
+            PrimaryAction(
+                label = "手电筒常亮",
+                onClick = onToggleLight,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 
@@ -654,46 +664,63 @@ private fun TorchScene(fraction: Float, modifier: Modifier = Modifier) {
             ),
         )
 
-        // 2. 墙面光斑：只显示在灯头**以上**的区域（照亮的墙面），
-        //    用裁剪避免光晕叠在筒身上形成"中间向四周发散"的观感
-        val glowR = w * (0.20f + 0.50f * f)
-        clipRect(left = 0f, top = 0f, right = w, bottom = headY) {
+        // 2. 墙面光斑：中心放在灯头**上方**，光晕只笼罩头部以上的墙面——
+        //    下缘随径向衰减自然变淡、到筒身处已接近透明，不出现硬切线
+        val glowR = w * (0.26f + 0.46f * f)
+        val glowCenter = Offset(w / 2f, headY - glowR * 0.6f)
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFFFFE7B0).copy(alpha = 0.85f * f),
+                    Color(0xFFFFE7B0).copy(alpha = 0f),
+                ),
+                center = glowCenter,
+                radius = glowR,
+            ),
+            radius = glowR,
+            center = glowCenter,
+        )
+        // 贴头小光晕：让灯头正上方的墙面最亮，与灯头顶沿高光衔接
+        val nearR = glowR * 0.55f
+        val nearCenter = Offset(w / 2f, headY - nearR * 0.5f)
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFFFFF3D2).copy(alpha = 0.70f * f),
+                    Color(0xFFFFF3D2).copy(alpha = 0f),
+                ),
+                center = nearCenter,
+                radius = nearR,
+            ),
+            radius = nearR,
+            center = nearCenter,
+        )
+
+        // 3. 光束：拉长的径向渐变椭圆（y 方向 ×2.4），边缘天然羽化，
+        //    与墙面光斑同语汇、无直边轮廓；越亮越长越亮
+        val beamR = w * (0.30f + 0.26f * f)
+        withTransform({
+            translate(left = w / 2f, top = headY)
+            scale(scaleX = 1f, scaleY = 2.4f, pivot = Offset.Zero)
+        }) {
+            val beamCenter = Offset(0f, -beamR * 0.38f)
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFFFFE7B0).copy(alpha = 0.88f * f),
-                        Color(0xFFFFE7B0).copy(alpha = 0f),
+                        Color(0xFFFFF3D2).copy(alpha = 0.62f * f),
+                        Color(0xFFFFF3D2).copy(alpha = 0f),
                     ),
-                    center = Offset(w / 2f, headY),
-                    radius = glowR,
+                    center = beamCenter,
+                    radius = beamR,
                 ),
-                radius = glowR,
-                center = Offset(w / 2f, headY),
+                radius = beamR,
+                center = beamCenter,
             )
         }
 
-        // 3. 光束锥：从灯头向上展开，越亮张角越大（f=0 时几乎不可见）
-        val beamSpread = w * (0.24f + 0.40f * f)
-        val beamPath = Path().apply {
-            moveTo(w / 2f - bodyTopHalf * 0.9f, headY)
-            lineTo(w / 2f + bodyTopHalf * 0.9f, headY)
-            lineTo(w / 2f + beamSpread, -h * 0.02f)
-            lineTo(w / 2f - beamSpread, -h * 0.02f)
-            close()
-        }
-        drawPath(
-            path = beamPath,
-            brush = Brush.verticalGradient(
-                listOf(
-                    Color(0xFFFFF3D2).copy(alpha = 0.72f * f),
-                    Color(0xFFFFF3D2).copy(alpha = 0.04f * f),
-                ),
-            ),
-        )
-
-        // 4. 灯头顶沿高光线：亮度感知的主要来源之一
+        // 4. 灯头顶沿高光线：亮度随 f 全程连续（熄灭时不可见，无恒亮基线）
         drawLine(
-            color = Color(0xFFFFF6DC).copy(alpha = 0.22f + 0.78f * f),
+            color = Color(0xFFFFF6DC).copy(alpha = 0.92f * f),
             start = Offset(w / 2f - bodyTopHalf * 0.92f, headY),
             end = Offset(w / 2f + bodyTopHalf * 0.92f, headY),
             strokeWidth = 2.dp.toPx(),
