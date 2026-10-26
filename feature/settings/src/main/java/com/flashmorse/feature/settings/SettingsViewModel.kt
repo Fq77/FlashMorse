@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.flashmorse.core.data.prefs.SettingsRepository
+import com.flashmorse.core.model.Brightness
 import com.flashmorse.core.model.ChannelPreference
 import com.flashmorse.core.model.TimingProfile
 import com.flashmorse.core.torch.MorseTransmitter
@@ -29,7 +30,8 @@ class SettingsViewModel(
     private val _state = MutableStateFlow(
         SettingsUiState(
             ledAvailable = transmitter.ledAvailable,
-            supportsStrength = capabilities?.supportsStrength == true,
+            supportsStrength = transmitter.ledSupportsBrightness,
+            maxStrengthLevel = capabilities?.maxStrengthLevel ?: 0,
             cameraId = capabilities?.cameraId,
             appVersion = appVersion,
         ),
@@ -47,6 +49,7 @@ class SettingsViewModel(
                         loop = settings.loopByDefault,
                         haptic = settings.hapticFeedback,
                         compensationMillis = settings.compensationMillis,
+                        brightnessPercent = settings.brightnessPercent,
                     )
                 }
             }
@@ -61,6 +64,16 @@ class SettingsViewModel(
     fun onWpmChange(wpm: Int) {
         viewModelScope.launch {
             settingsRepository.setWpm(wpm.coerceIn(TimingProfile.MIN_WPM, TimingProfile.MAX_WPM))
+        }
+    }
+
+    /**
+     * 亮度只在空闲时生效（[MorseTransmitter.setBrightness] 内部拦截），
+     * 这里只负责落盘，实际下发由 Application 级的 settings 收集器统一做。
+     */
+    fun onBrightnessChange(percent: Int) {
+        viewModelScope.launch {
+            settingsRepository.setBrightness(Brightness.clampPercent(percent))
         }
     }
 

@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.flashmorse.core.model.Brightness
 import com.flashmorse.core.model.ChannelPreference
 import com.flashmorse.core.model.TimingProfile
 import kotlinx.coroutines.flow.Flow
@@ -45,6 +46,7 @@ class SettingsRepository(context: Context) {
             prefs[Keys.SosAccepted] = next.sosDisclaimerAccepted
             prefs[Keys.LastMessage] = next.lastMessage
             prefs[Keys.GlareHint] = next.glareHintShown
+            prefs[Keys.Brightness] = Brightness.clampPercent(next.brightnessPercent)
         }
     }
 
@@ -64,6 +66,10 @@ class SettingsRepository(context: Context) {
 
     suspend fun markGlareHintShown() = update { it.copy(glareHintShown = true) }
 
+    suspend fun setBrightness(percent: Int) = update {
+        it.copy(brightnessPercent = Brightness.clampPercent(percent))
+    }
+
     private fun Preferences.toSettings(): Settings = Settings(
         wpm = this[Keys.Wpm] ?: TimingProfile.DEFAULT_WPM,
         channel = this[Keys.Channel]?.let { name ->
@@ -75,6 +81,9 @@ class SettingsRepository(context: Context) {
         sosDisclaimerAccepted = this[Keys.SosAccepted] ?: false,
         lastMessage = this[Keys.LastMessage] ?: "SOS",
         glareHintShown = this[Keys.GlareHint] ?: false,
+        brightnessPercent = Brightness.clampPercent(
+            this[Keys.Brightness] ?: Brightness.DEFAULT_PERCENT,
+        ),
     )
 
     private object Keys {
@@ -86,5 +95,6 @@ class SettingsRepository(context: Context) {
         val SosAccepted = booleanPreferencesKey("sos_accepted")
         val LastMessage = stringPreferencesKey("last_message")
         val GlareHint = booleanPreferencesKey("glare_hint_shown")
+        val Brightness = intPreferencesKey("brightness_percent")
     }
 }

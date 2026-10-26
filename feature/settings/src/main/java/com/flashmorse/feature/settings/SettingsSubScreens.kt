@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flashmorse.core.data.prefs.Settings
 import com.flashmorse.core.data.prefs.SettingsRepository
 import com.flashmorse.core.designsystem.icon.FmIcons
+import com.flashmorse.core.model.Brightness
 import com.flashmorse.core.model.ChannelPreference
 import com.flashmorse.core.model.TimingProfile
 import com.flashmorse.core.model.isActive
@@ -78,6 +79,7 @@ fun CalibrationRoute(
     CalibrationScreen(
         compensationMillis = value,
         wpm = settings.wpm,
+        brightnessPercent = settings.brightnessPercent,
         previewing = previewing,
         onValueChange = { value = (it / 5f).roundToInt() * 5 },
         onValueCommitted = {
@@ -102,6 +104,7 @@ fun CalibrationRoute(
 fun CalibrationScreen(
     compensationMillis: Int,
     wpm: Int,
+    brightnessPercent: Int,
     previewing: Boolean,
     onValueChange: (Float) -> Unit,
     onValueCommitted: () -> Unit,
@@ -188,6 +191,23 @@ fun CalibrationScreen(
                     style = MiuixTheme.textStyles.footnote2,
                     color = colorScheme.onSurfaceVariantSummary,
                 )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = buildString {
+                        append("手电筒通道按当前亮度 $brightnessPercent% 发出；" +
+                            "屏幕闪光通道始终整屏全亮，不受此设定影响。")
+                        if (brightnessPercent < Brightness.LOW_THRESHOLD_PERCENT) {
+                            append("手电筒低亮度下点划边沿更软，此刻标定的补偿值偏保守，")
+                            append("建议调到 60% 以上再校准。")
+                        }
+                    },
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = if (brightnessPercent < Brightness.LOW_THRESHOLD_PERCENT) {
+                        colorScheme.primary
+                    } else {
+                        colorScheme.onSurfaceVariantSummary
+                    },
+                )
             }
         }
 
@@ -229,8 +249,9 @@ fun DiagnosticsRoute(
         preference = settings.channel,
         ledAvailable = transmitter.ledAvailable,
         cameraId = capabilities?.cameraId,
-        supportsStrength = capabilities?.supportsStrength == true,
+        supportsStrength = transmitter.ledSupportsBrightness,
         maxStrengthLevel = capabilities?.maxStrengthLevel ?: 0,
+        brightnessPercent = settings.brightnessPercent,
         thermalLevel = thermal,
         wpm = settings.wpm,
         unitMillis = settings.timingProfile.unitMillis,
@@ -245,12 +266,20 @@ fun DiagnosticsScreen(
     cameraId: String?,
     supportsStrength: Boolean,
     maxStrengthLevel: Int,
+    brightnessPercent: Int,
     thermalLevel: ThermalLevel,
     wpm: Int,
     unitMillis: Int,
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MiuixTheme.colorScheme
+
+    // 建议必须针对"实际会用的通道"：通道选屏幕闪光时还去讲 LED 边沿，会让人以为设置没生效。
+    val ledInUse = when (preference) {
+        ChannelPreference.Led -> ledAvailable
+        ChannelPreference.Screen -> false
+        ChannelPreference.Auto -> ledAvailable && unitMillis >= 80
+    }
 
     Column(
         modifier = modifier
@@ -265,7 +294,19 @@ fun DiagnosticsScreen(
                 DiagnosticRow("后置相机 ID", cameraId ?: "—")
                 DiagnosticRow(
                     "亮度分级",
-                    if (supportsStrength) "支持（最高 $maxStrengthLevel 级）" else "不支持",
+                    if (supportsStrength) "支持（1–$maxStrengthLevel 档）" else "不支持",
+                )
+                DiagnosticRow(
+                    "手电筒亮度",
+                    if (supportsStrength) {
+                        val level = Brightness.levelFor(
+                            Brightness.percentToFraction(brightnessPercent),
+                            maxStrengthLevel,
+                        )
+                        "$brightnessPercent% · 硬件 $level/$maxStrengthLevel 档"
+                    } else {
+                        "$brightnessPercent%（仅屏幕通道）"
+                    },
                 )
                 DiagnosticRow("通道偏好", preference.displayName)
             }
@@ -296,6 +337,9 @@ fun DiagnosticsScreen(
                         !ledAvailable -> "本机无闪光灯，屏幕闪光通道是唯一选择，近距离使用效果最好。"
                         thermalLevel.requiresThrottle ->
                             "设备温度偏高，建议降低速度或间歇发送，避免热保护中断。"
+                        brightnessPercent < Brightness.LOW_THRESHOLD_PERCENT && ledInUse ->
+                            "当前亮度 $brightnessPercent%，LED 边沿变软：适合近距离示意，" +
+                                "远距离请把亮度提到 60% 以上。"
                         unitMillis < 80 ->
                             "当前速度超过 15 WPM，LED 的 HAL 延迟会造成时序失真，建议切到屏幕闪光通道。"
                         else -> "当前配置在 LED 通道的可靠范围内，可以直接使用。"

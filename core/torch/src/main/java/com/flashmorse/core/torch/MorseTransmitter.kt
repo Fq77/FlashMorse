@@ -56,7 +56,19 @@ class MorseTransmitter(
     /** LED 常亮开关的本地镜像（`setTorchMode` 不回读状态，需自行记账）。 */
     private var constantLedOn: Boolean = false
 
+    /**
+     * 用户设定的手电筒亮度（0..1）。
+     *
+     * 屏幕通道不参与调光，这里只服务 LED；发送过程中不打断当前时间轴，
+     * 等下一次 [play] 生效——见 [setBrightness]。
+     */
+    @Volatile
+    private var brightnessFraction: Float = 1f
+
     val ledAvailable: Boolean get() = ledController?.isAvailable == true
+
+    /** LED 是否支持真实档位调光（API 33+ 且 HAL 报出多档；调用失败会自行降级）。 */
+    val ledSupportsBrightness: Boolean get() = ledController?.supportsBrightness == true
 
     fun capabilities(): TorchCapabilities? =
         (ledController as? TorchManagerController)?.capabilities
@@ -82,6 +94,8 @@ class MorseTransmitter(
 
     fun play(script: SendScript, loop: Boolean, channel: TransmissionChannel) {
         if (script.isEmpty) return
+        // 亮度在每次起播前下发一次：即便用户是在上一次发送过程中改的值，这里也会追上。
+        applyBrightness(brightnessFraction)
         val controller = controllerFor(channel)
         if (!controller.isAvailable) {
             _state.value = PlaybackState.Aborted(AbortReason.TorchUnavailable)
@@ -124,6 +138,18 @@ class MorseTransmitter(
             AbortReason.UserStopped -> PlaybackState.Idle
             else -> PlaybackState.Aborted(reason)
         }
+    }
+
+    /**
+     * 设置发光亮度（0..1）。
+     *
+     * 发送中只记值、不下发：中途改档会让同一段报文的点划边沿特性突变，
+     * 接收端会把"变暗"误判成"变短"。下一次起播时由 [play] 统一应用。
+     */
+    fun setBrightness(fraction: Float) {
+        brightnessFraction = fraction.coerceIn(0f, 1f)
+        if (_state.value.isBusy()) return
+        applyBrightness(brightnessFraction)
     }
 
     /** 复位为 Idle（页面消费掉错误提示后调用）。 */
@@ -282,6 +308,11 @@ class MorseTransmitter(
         if (runToken != token) return null
         val compensationNanos = script.timing.compensationMillis * NANOS_PER_MILLI
         return clock.nanos() - script.events[index].offsetNanos + compensationNanos
+    }
+
+    /** 只下发 LED：屏幕通道的价值是"最亮、最容易被看见"，不参与调光。 */
+    private fun applyBrightness(fraction: Float) {
+        runCatching { ledController?.setBrightness(fraction) }
     }
 
     private fun controllerFor(channel: TransmissionChannel): TorchController = when (channel) {

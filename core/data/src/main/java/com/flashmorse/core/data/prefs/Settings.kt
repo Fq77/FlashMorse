@@ -1,5 +1,6 @@
 package com.flashmorse.core.data.prefs
 
+import com.flashmorse.core.model.Brightness
 import com.flashmorse.core.model.ChannelPreference
 import com.flashmorse.core.model.TimingProfile
 
@@ -21,6 +22,8 @@ data class Settings(
     val lastMessage: String = "SOS",
     /** 是否已看过「强光环境建议遮挡屏幕」提示 */
     val glareHintShown: Boolean = false,
+    /** 发光亮度（百分比）：屏幕通道按灰度、LED 通道按硬件档位映射，见 [Brightness] */
+    val brightnessPercent: Int = Brightness.DEFAULT_PERCENT,
 ) {
     val timingProfile: TimingProfile
         get() = TimingProfile.forWpm(wpm, compensationMillis)

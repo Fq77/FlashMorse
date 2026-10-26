@@ -34,6 +34,7 @@ fun SettingsRoute(
     SettingsScreen(
         state = state,
         onWpmChange = viewModel::onWpmChange,
+        onBrightnessChange = viewModel::onBrightnessChange,
         onChannelChange = viewModel::onChannelChange,
         onLoopChange = viewModel::onLoopChange,
         onHapticChange = viewModel::onHapticChange,

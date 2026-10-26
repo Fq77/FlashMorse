@@ -44,6 +44,8 @@ private fun SenderScreenIdlePreview() {
                 onSosDismiss = {},
                 onOpenManual = {},
                 onToggleLight = {},
+                onTorchBrightnessPreview = {},
+                onTorchBrightnessCommit = {},
                 onPauseToggle = {},
                 onStop = {},
             )
@@ -83,6 +85,8 @@ private fun SenderScreenTransmittingPreview() {
                 onSosDismiss = {},
                 onOpenManual = {},
                 onToggleLight = {},
+                onTorchBrightnessPreview = {},
+                onTorchBrightnessCommit = {},
                 onPauseToggle = {},
                 onStop = {},
             )

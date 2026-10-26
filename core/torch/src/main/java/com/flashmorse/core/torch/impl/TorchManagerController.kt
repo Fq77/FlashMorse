@@ -8,6 +8,7 @@ import android.os.HandlerThread
 import android.os.Looper
 import android.os.Process
 import android.util.Log
+import com.flashmorse.core.model.Brightness
 import com.flashmorse.core.model.TransmissionChannel
 import com.flashmorse.core.torch.TorchCapabilities
 import com.flashmorse.core.torch.TorchController
@@ -86,30 +87,84 @@ class TorchManagerController(
         }.onFailure { Log.w(TAG, "registerTorchCallback failed", it) }
     }
 
-    override fun setOn(on: Boolean) {
-        if (!isAvailable) return
-        if (on == requestedOn && !on) return
-        requestedOn = on
-        runCatching {
-            cameraManager?.setTorchMode(cameraId, on)
-        }.onFailure {
-            Log.w(TAG, "setTorchMode($on) failed", it)
-            if (on) {
-                requestedOn = false
-                isAvailable = false
-                _externalTakeover.tryEmit(Unit)
-            }
-        }
+    /**
+     * 亮度是否真的可调：API 33+ 且 HAL 报出多于一档。
+     *
+     * 运行期一次调用失败就会降级为 false（见 [applyOn]），UI 依据它决定是否展示亮度项，
+     * 而不是让用户滑了没反应。
+     */
+    override var supportsBrightness: Boolean =
+        isApi33() && capabilities.supportsStrength
+        private set
+
+    @Volatile
+    private var brightnessFraction: Float = 1f
+
+    /** 上一次实际下发的档位，只用于「变化时打一条日志」，避免每个符号刷一行。 */
+    @Volatile
+    private var lastAppliedLevel: Int = -1
+
+    override fun setBrightness(fraction: Float) {
+        brightnessFraction = fraction.coerceIn(0f, 1f)
+        // 常亮 / 试闪期间改亮度要立刻可见；发送期间由调度器保证不会调到这里。
+        if (requestedOn) applyOn()
     }
 
-    /** F-15：仅 API 33+ 且硬件支持时生效，低版本必须由 UI 隐藏该项。 */
-    fun setStrength(level: Int): Boolean {
-        if (!isAvailable || !isApi33()) return false
-        val clamped = level.coerceIn(capabilities.minStrengthLevel, capabilities.maxStrengthLevel)
-        return runCatching {
-            cameraManager?.turnOnTorchWithStrengthLevel(cameraId, clamped)
-            true
-        }.getOrDefault(false)
+    override fun setOn(on: Boolean) {
+        Log.d(TAG, "setOn($on) requestedOn=$requestedOn")
+        if (!isAvailable) return
+        if (on) {
+            applyOn()
+            return
+        }
+        if (!requestedOn) return
+        requestedOn = false
+        runCatching { cameraManager?.setTorchMode(cameraId, false) }
+            .onFailure { Log.w(TAG, "setTorchMode(false) failed", it) }
+    }
+
+    /**
+     * 点亮。
+     *
+     * 有档位时必须用 [CameraManager.turnOnTorchWithStrengthLevel]，不能用 `setTorchMode(true)`：
+     * 后者按硬件**默认档**点亮，会把用户设定的亮度直接冲掉。
+     *
+     * 关灯仍走 `setTorchMode(false)`——灭灯路径越短越好，不引入额外参数校验。
+     */
+    private fun applyOn() {
+        if (!isAvailable) return
+        if (supportsBrightness) {
+            val level = Brightness.levelFor(brightnessFraction, capabilities.maxStrengthLevel)
+            val applied = runCatching {
+                cameraManager?.turnOnTorchWithStrengthLevel(cameraId, level)
+                true
+            }.getOrElse { error ->
+                Log.w(TAG, "turnOnTorchWithStrengthLevel($level) failed, fallback to default", error)
+                false
+            }
+            if (applied) {
+                requestedOn = true
+                if (level != lastAppliedLevel) {
+                    lastAppliedLevel = level
+                    Log.d(TAG, "torch on at level $level / ${capabilities.maxStrengthLevel}")
+                }
+                return
+            }
+            // 该机型实际不可用（权限被裁剪 / HAL 拒绝）：本次进程内不再尝试，
+            // 否则每个符号都会抛一次异常，时序线程会被异常构造拖垮。
+            supportsBrightness = false
+        }
+
+        runCatching {
+            cameraManager?.setTorchMode(cameraId, true)
+        }.onSuccess {
+            requestedOn = true
+        }.onFailure {
+            Log.w(TAG, "setTorchMode(true) failed", it)
+            requestedOn = false
+            isAvailable = false
+            _externalTakeover.tryEmit(Unit)
+        }
     }
 
     override fun release() {
@@ -171,7 +226,7 @@ class TorchManagerController(
                 hasFlash = true,
                 supportsStrength = maxLevel > 1,
                 maxStrengthLevel = maxLevel,
-                minStrengthLevel = defaultLevel.coerceAtLeast(1),
+                defaultStrengthLevel = defaultLevel.coerceAtLeast(1),
             )
         }
     }

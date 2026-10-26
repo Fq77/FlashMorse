@@ -51,6 +51,8 @@ fun SenderRoute(
         onSosDismiss = viewModel::onSosDismiss,
         onOpenManual = onOpenManual,
         onToggleLight = viewModel::onToggleConstantLight,
+        onTorchBrightnessPreview = viewModel::onTorchBrightnessPreview,
+        onTorchBrightnessCommit = viewModel::onTorchBrightnessCommit,
         onPauseToggle = viewModel::onPauseToggle,
         onStop = viewModel::onStop,
         modifier = modifier,

@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -28,18 +30,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.flashmorse.core.designsystem.component.MorseStream
 import com.flashmorse.core.designsystem.icon.FmIcons
+import com.flashmorse.core.model.Brightness
 import com.flashmorse.core.model.PlaybackState
 import com.flashmorse.core.model.TransmissionChannel
 import com.flashmorse.core.torch.ThermalLevel
@@ -53,6 +62,7 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import kotlin.math.roundToInt
 import java.util.Locale
 
 /**
@@ -70,10 +80,24 @@ fun SenderScreen(
     onSosDismiss: () -> Unit,
     onOpenManual: () -> Unit,
     onToggleLight: () -> Unit,
+    onTorchBrightnessPreview: (Int) -> Unit,
+    onTorchBrightnessCommit: (Int) -> Unit,
     onPauseToggle: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 常亮即"手电筒模式"：整页切换成灯面 + 调光，不再显示报文与发送卡，
+    // 否则用户分不清当前处于哪种状态。
+    if (state.constantLightOn) {
+        TorchScreen(
+            state = state,
+            onPreview = onTorchBrightnessPreview,
+            onCommit = onTorchBrightnessCommit,
+            onTurnOff = onToggleLight,
+        )
+        return
+    }
+
     val scrollState = rememberScrollState()
 
     // 整页可滚动 + 组件使用固定高度：
@@ -597,6 +621,108 @@ private fun SenderSosDisclaimerDialog(
         )
     }
 }
+
+// -------------------------------------------------------------------- 手电筒
+
+/**
+ * 手电筒整页界面：灯面颜色随档位变化，上下滑动无级调光。
+ *
+ * 拖动过程走 [onPreview]（即时驱动 LED 与界面），松手才走 [onCommit] 落盘——
+ * 反过来（每次位移都写 DataStore）会把磁盘写放大到每秒几十次。
+ */
+@Composable
+private fun TorchScreen(
+    state: SenderUiState,
+    onPreview: (Int) -> Unit,
+    onCommit: (Int) -> Unit,
+    onTurnOff: () -> Unit,
+) {
+    val colorScheme = MiuixTheme.colorScheme
+    var dragPercent by remember { mutableStateOf<Int?>(null) }
+    // 已提交值单独持有：拖动结束到 DataStore 往返之间有一个空窗，
+    // 若直接回落到 state.brightnessPercent，读数会先跳回旧值再跳到新值。
+    var committedPercent by remember { mutableIntStateOf(state.brightnessPercent) }
+    LaunchedEffect(state.brightnessPercent) { committedPercent = state.brightnessPercent }
+    val displayPercent = dragPercent ?: committedPercent
+    val fraction = Brightness.percentToFraction(displayPercent)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
+            .padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(lampColor(fraction))
+                .pointerInput(state.brightnessPercent) {
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            dragPercent?.let {
+                                onCommit(it)
+                                committedPercent = it
+                            }
+                            dragPercent = null
+                        },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            val current = dragPercent ?: state.brightnessPercent
+                            // 整个灯面高度对应 0–100%：一格满滑正好覆盖全部范围
+                            val delta = (dragAmount / size.height * 100f).roundToInt()
+                            val next = (current - delta)
+                                .coerceIn(Brightness.MIN_PERCENT, Brightness.MAX_PERCENT)
+                            if (next != current) {
+                                dragPercent = next
+                                onPreview(next)
+                            }
+                        },
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "$displayPercent%",
+                    style = MiuixTheme.textStyles.title1,
+                    color = onLampColor(fraction),
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "手电筒亮度 · 上下滑动调节",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = onLampColor(fraction).copy(alpha = 0.8f),
+                )
+            }
+        }
+
+        TextActionTile(
+            label = "关灯",
+            onClick = onTurnOff,
+            modifier = Modifier.fillMaxWidth(),
+            highlighted = true,
+        )
+
+        Text(
+            text = "灯已常亮，可随时离开本页；亮度只作用于手电筒通道",
+            style = MiuixTheme.textStyles.footnote2,
+            color = colorScheme.onSurfaceVariantSummary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/** 灯面颜色：暗档是暖黑，亮档接近暖白，颜色本身承担"亮度指示器"的角色。 */
+private fun lampColor(fraction: Float): Color =
+    lerp(Color(0xFF17140E), Color(0xFFFFDF9E), (0.18f + 0.82f * fraction).coerceIn(0f, 1f))
+
+/** 灯面上的文字颜色：灯面越亮文字越深，保证任何档位下都可读。 */
+private fun onLampColor(fraction: Float): Color =
+    if (fraction > 0.6f) Color(0xFF3B2F10) else Color(0xFFE9DDB9)
 
 // ---------------------------------------------------------------------- helpers
 

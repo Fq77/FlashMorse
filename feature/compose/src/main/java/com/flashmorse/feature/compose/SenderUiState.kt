@@ -1,5 +1,6 @@
 package com.flashmorse.feature.compose
 
+import com.flashmorse.core.model.Brightness
 import com.flashmorse.core.model.ChannelPreference
 import com.flashmorse.core.model.MorseCode
 import com.flashmorse.core.model.PlaybackState
@@ -29,6 +30,8 @@ data class SenderUiState(
     val showSosDisclaimer: Boolean = false,
     /** 归一化后无法编码的字符数（被替换为 `?`），用于就地提示而不是静默吞掉。 */
     val unsupportedCount: Int = 0,
+    /** 手电筒亮度百分比：常亮模式下整页调光直接读它 */
+    val brightnessPercent: Int = Brightness.DEFAULT_PERCENT,
 ) {
     val isSending: Boolean get() = playback.isActive
 

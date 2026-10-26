@@ -26,6 +26,10 @@ class ScreenFlashController : TorchController {
     /** 当前是否应点亮（true = 全屏白）。 */
     val lit: StateFlow<Boolean> = _lit.asStateFlow()
 
+    // 注意：屏幕通道不实现调光（supportsBrightness 维持默认 false）。
+    // 它的价值就是"最亮、最容易被看见"，调暗只会削弱唯一优势；
+    // 亮度设定只作用于手电筒，见 TorchManagerController。
+
     override fun setOn(on: Boolean) {
         if (_lit.value != on) _lit.value = on
     }

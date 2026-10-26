@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.flashmorse.core.data.prefs.SettingsRepository
+import com.flashmorse.core.model.Brightness
 import com.flashmorse.core.data.repository.HistoryRepository
 import com.flashmorse.core.model.AbortReason
 import com.flashmorse.core.model.PlaybackState
@@ -62,6 +63,7 @@ class SenderViewModel(
                         hapticFeedback = settings.hapticFeedback,
                         loopByDefault = settings.loopByDefault,
                         sosDisclaimerAccepted = settings.sosDisclaimerAccepted,
+                        brightnessPercent = settings.brightnessPercent,
                     )
                 }
                 if (!messageInitialized) {
@@ -142,6 +144,21 @@ class SenderViewModel(
         _state.update { it.copy(showSosDisclaimer = false) }
     }
 
+    /**
+     * 手电筒模式拖动调光的"过程值"：只驱动 LED 与界面，不落盘。
+     * DataStore 每次 edit 都是一次磁盘写，拖动一秒能触发几十次，不能在这里持久化。
+     */
+    fun onTorchBrightnessPreview(percent: Int) {
+        transmitter.setBrightness(Brightness.percentToFraction(percent))
+    }
+
+    /** 拖动结束（松手）后调用：提交最终值并持久化。 */
+    fun onTorchBrightnessCommit(percent: Int) {
+        val clamped = Brightness.clampPercent(percent)
+        transmitter.setBrightness(Brightness.percentToFraction(clamped))
+        viewModelScope.launch { settingsRepository.setBrightness(clamped) }
+    }
+
     fun onToggleConstantLight() {
         if (_state.value.isSending) return
         val next = !_state.value.constantLightOn
@@ -175,7 +192,7 @@ class SenderViewModel(
         }
         val thermal = thermalGuard.refresh()
         if (thermal.requiresThrottle) {
-            _messages.trySend("设备温度偏高（${thermal.displayName}），建议降低速度或间歇发送")
+            _messages.trySend("设备温度偏高（${thermal.displayName}），建议降低速度、调低亮度或间歇发送")
         }
         val channel = transmitter.resolveChannel(current.channelPreference, current.timing)
         transmitter.play(current.script, loop = loop, channel = channel)

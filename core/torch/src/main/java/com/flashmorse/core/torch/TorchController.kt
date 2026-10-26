@@ -18,6 +18,22 @@ interface TorchController {
     /** 设置灯态。实现必须尽量少做工作，避免在时序线程上产生抖动。 */
     fun setOn(on: Boolean)
 
+    /**
+     * 是否支持软件调光。
+     *
+     * 默认 false：屏幕通道与 Mock 之外，只有硬件真的分档（API 33+ 且 HAL 报出多档）的 LED 才为 true。
+     * UI 依据它决定是否展示/启用亮度项，而不是"滑了没反应"。
+     */
+    val supportsBrightness: Boolean get() = false
+
+    /**
+     * 设置亮度比例（0..1）。
+     *
+     * 只允许在空闲时调用：发送过程中改档会让同一段报文的点划边沿特性突变，
+     * 而这正是接收端最难判读的变化。
+     */
+    fun setBrightness(fraction: Float) = Unit
+
     /** 释放底层资源（注销回调等）。 */
     fun release()
 }
