@@ -16,6 +16,7 @@ fun SettingsRoute(
     transmitter: MorseTransmitter,
     thermalGuard: ThermalGuard,
     appVersion: String,
+    onOpenSpeed: () -> Unit,
     onOpenCalibration: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -37,12 +38,12 @@ fun SettingsRoute(
 
     SettingsScreen(
         state = state,
-        onWpmChange = viewModel::onWpmChange,
         onRetainBrightnessChange = viewModel::onRetainBrightnessChange,
         onSoundEnabledChange = viewModel::onSoundEnabledChange,
         onChannelChange = viewModel::onChannelChange,
         onLoopChange = viewModel::onLoopChange,
         onHapticChange = viewModel::onHapticChange,
+        onOpenSpeed = onOpenSpeed,
         onOpenCalibration = onOpenCalibration,
         onOpenDiagnostics = onOpenDiagnostics,
         onOpenAbout = onOpenAbout,

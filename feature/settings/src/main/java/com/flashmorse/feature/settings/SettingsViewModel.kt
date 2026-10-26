@@ -8,7 +8,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.flashmorse.core.data.prefs.SettingsRepository
 import com.flashmorse.core.model.Brightness
 import com.flashmorse.core.model.ChannelPreference
-import com.flashmorse.core.model.TimingProfile
 import com.flashmorse.core.torch.MorseTransmitter
 import com.flashmorse.core.torch.ThermalGuard
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,12 +60,6 @@ class SettingsViewModel(
             thermalGuard.level.collect { level ->
                 _state.update { it.copy(thermalLevel = level) }
             }
-        }
-    }
-
-    fun onWpmChange(wpm: Int) {
-        viewModelScope.launch {
-            settingsRepository.setWpm(wpm.coerceIn(TimingProfile.MIN_WPM, TimingProfile.MAX_WPM))
         }
     }
 

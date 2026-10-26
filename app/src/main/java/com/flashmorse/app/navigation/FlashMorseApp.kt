@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -14,11 +15,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flashmorse.app.BuildConfig
@@ -34,6 +38,7 @@ import com.flashmorse.feature.settings.AboutRoute
 import com.flashmorse.feature.settings.CalibrationRoute
 import com.flashmorse.feature.settings.DiagnosticsRoute
 import com.flashmorse.feature.settings.SettingsRoute
+import com.flashmorse.feature.settings.SpeedRoute
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
@@ -53,6 +58,25 @@ fun FlashMorseApp(container: AppContainer) {
 
     var tabName by rememberSaveable { mutableStateOf(HomeTab.Sender.name) }
     val tab = HomeTab.entries.firstOrNull { it.name == tabName } ?: HomeTab.Sender
+
+    // Pager 状态提升到这里：底栏点击（HomePage）与滑页同步（HomeContent）都操作它。
+    val pagerState = rememberPagerState(initialPage = tab.ordinal) { HomeTab.entries.size }
+    val pagerScope = rememberCoroutineScope()
+
+    // 底栏点击：立刻更新选中态，并直接发起翻页动画。新的 scroll mutate 与在播
+    // 动画同优先级，MutatorMutex 会当场打断旧动画、从当前位置连续改向——
+    // 中间页永不落定，Pager 的自动吸附没有可乘之机。
+    // 旧实现经 LaunchedEffect(tab) 间接重启：取消到重启之间隔了一帧重组，
+    // 吸附抢先落位最近的中间页，settledPage 回写又把点击选择吞回上一页，
+    // 表现为「点击没反应，稍等才能再点」。
+    val selectTab: (HomeTab) -> Unit = { target ->
+        if (target.name != tabName) {
+            tabName = target.name
+        }
+        pagerScope.launch {
+            pagerState.animateScrollToPage(target.ordinal)
+        }
+    }
 
     // 提示统一走系统 Toast：跨页面、跨弹层都不会被页面层级遮挡
     val context = LocalContext.current
@@ -86,7 +110,7 @@ fun FlashMorseApp(container: AppContainer) {
                 HomePage(
                     title = tab.title,
                     selectedTab = tab,
-                    onTabSelected = { tabName = it.name },
+                    onTabSelected = selectTab,
                     onOpenSettings = { backStack.add(Route.Settings) },
                     onOpenSurvival = { backStack.add(Route.Survival) },
                 ) { padding ->
@@ -101,8 +125,9 @@ fun FlashMorseApp(container: AppContainer) {
                     ) {
                         HomeContent(
                             container = container,
+                            pagerState = pagerState,
                             tab = tab,
-                            onTabSelected = { tabName = it.name },
+                            onTabSelected = { next -> tabName = next.name },
                             onMessage = showMessage,
                             onOpenManual = { backStack.add(Route.Manual) },
                         )
@@ -130,9 +155,20 @@ fun FlashMorseApp(container: AppContainer) {
                             transmitter = container.transmitter,
                             thermalGuard = container.thermalGuard,
                             appVersion = APP_VERSION,
+                            onOpenSpeed = { backStack.add(Route.Speed) },
                             onOpenCalibration = { backStack.add(Route.Calibration) },
                             onOpenDiagnostics = { backStack.add(Route.Diagnostics) },
                             onOpenAbout = { backStack.add(Route.About) },
+                        )
+                    }
+                }
+            }
+
+            entry<Route.Speed> {
+                DetailPage(title = "速度", onBack = { backStack.removeLastOrNull() }) { padding ->
+                    PageBody(padding) {
+                        SpeedRoute(
+                            settingsRepository = container.settingsRepository,
                         )
                     }
                 }
@@ -180,7 +216,6 @@ fun FlashMorseApp(container: AppContainer) {
                 }
             }
         }
-
         // 屏幕闪光通道的全屏光斑必须盖在所有页面之上，且自身可点按停止
         ScreenFlashOverlay(
             active = playback.isActive && activeChannel == TransmissionChannel.Screen,
@@ -238,29 +273,20 @@ private val EntryFromLeft: NavTransition = navGraphicsTransition { scope ->
 @Composable
 private fun HomeContent(
     container: AppContainer,
+    pagerState: PagerState,
     tab: HomeTab,
     onTabSelected: (HomeTab) -> Unit,
     onMessage: (String) -> Unit,
     onOpenManual: () -> Unit,
 ) {
-    // 左右滑动切换页面：pager 与底部导航双向同步——
-    // 点导航 → animateScrollToPage；滑页面 → snapshotFlow 回写 tab 状态。
-    val pagerState = rememberPagerState(initialPage = tab.ordinal) { HomeTab.entries.size }
-
-    // 双向同步用 settledPage（动画完全落定才更新）而不是 currentPage：
-    // currentPage 在滑动中途就会跳到最近邻页，用它回写 tab 会让
-    // LaunchedEffect(tab) 反向 animateScrollToPage，两个动画互相拉扯——
-    // 表现为"点对照页结果卡在短语与对照之间"。
-    LaunchedEffect(tab) {
-        if (pagerState.settledPage != tab.ordinal) {
-            pagerState.animateScrollToPage(tab.ordinal)
-        }
-    }
+    // 滑动回写仍以 settledPage 为准：动画完全落定才同步，避免与点击动画互相拉扯。
+    // currentTab 用 rememberUpdatedState 保持最新，防止长驻协程捕获过期值。
+    val currentTab by rememberUpdatedState(tab)
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }
             .collect { page ->
                 val next = HomeTab.entries.getOrNull(page) ?: return@collect
-                if (next != tab) onTabSelected(next)
+                if (next != currentTab) onTabSelected(next)
             }
     }
 

@@ -61,6 +61,131 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+// ------------------------------------------------------------------ 发报速度
+
+/**
+ * 速度子页。
+ *
+ * 滑杆用满宽度、精确到 1 WPM；调速建议与「当前速度在 LED 通道的可靠性」
+ * 从设置页底部归位到这里——它们回答的都是「这个速度意味着什么、怎么调」。
+ */
+@Composable
+fun SpeedRoute(
+    settingsRepository: SettingsRepository,
+    modifier: Modifier = Modifier,
+) {
+    val settings by settingsRepository.settings.collectAsStateWithLifecycle(initialValue = Settings())
+    val scope = rememberCoroutineScope()
+
+    SpeedScreen(
+        wpm = settings.wpm,
+        onWpmChange = { wpm ->
+            scope.launch { settingsRepository.setWpm(wpm) }
+        },
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun SpeedScreen(
+    wpm: Int,
+    onWpmChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MiuixTheme.colorScheme
+    val timing = TimingProfile.forWpm(wpm)
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp),
+    ) {
+        SmallTitle(text = "发报速度")
+
+        Card {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "速度",
+                        style = MiuixTheme.textStyles.subtitle,
+                        color = colorScheme.onBackground,
+                    )
+                    Text(
+                        text = "$wpm WPM",
+                        style = MiuixTheme.textStyles.title3,
+                        color = colorScheme.primary,
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Slider(
+                    value = wpm.toFloat(),
+                    onValueChange = { onWpmChange(it.roundToInt()) },
+                    valueRange = TimingProfile.MIN_WPM.toFloat()..TimingProfile.MAX_WPM.toFloat(),
+                    steps = (TimingProfile.MAX_WPM - TimingProfile.MIN_WPM) - 1,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "${TimingProfile.MIN_WPM} WPM",
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = colorScheme.onSurfaceVariantSummary,
+                    )
+                    Text(
+                        text = "${TimingProfile.MAX_WPM} WPM",
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        SmallTitle(text = "这个速度意味着什么")
+        Card {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                Text(
+                    text = "点 ${timing.unitMillis} ms · 划 ${timing.dashMillis} ms · " +
+                        "字符间隔 ${timing.charGapMillis} ms · 单词间隔 ${timing.wordGapMillis} ms",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = colorScheme.onSurfaceVariantSummary,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = if (timing.isLedReliable) {
+                        "当前速度在 LED 通道的可靠范围内，闪光灯与屏幕闪光都可以直接使用。"
+                    } else {
+                        "当前速度超过 15 WPM，LED 通道存在时序失真风险，发报会自动使用屏幕闪光。"
+                    },
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = if (timing.isLedReliable) {
+                        colorScheme.onSurfaceVariantSummary
+                    } else {
+                        colorScheme.primary
+                    },
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "调速后建议先发一段熟悉的报文核对节奏；若整体偏快或偏慢，" +
+                        "再到「时序补偿」微调（每次 5 ms）。",
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = colorScheme.onSurfaceVariantSummary,
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
 // ------------------------------------------------------------------ 时序补偿
 
 /** 时序补偿子页面：整页而不是弹层，滑杆可以用满宽度。 */

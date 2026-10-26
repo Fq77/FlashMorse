@@ -23,6 +23,10 @@ sealed interface Route : NavKey {
     @Serializable
     data object Settings : Route
 
+    /** 速度调节（设置页子页：滑杆用满宽度，调速说明也归位在这里）。 */
+    @Serializable
+    data object Speed : Route
+
     @Serializable
     data object Calibration : Route
 

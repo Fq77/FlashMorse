@@ -1,44 +1,37 @@
 package com.flashmorse.feature.settings
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.flashmorse.core.model.TimingProfile
-import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
-import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 设置首页。
  *
- * 速度只在这里调节——发报页不再重复放滑杆，避免同一个参数出现在两处。
- * 「时序补偿 / 设备诊断 / 关于」三项都是压栈子页面，不再用底部弹层。
+ * 速度只在这里调节——点进子页用满宽度的滑杆，调速建议与可靠性说明也归位在子页里；
+ * 「时序补偿 / 设备诊断 / 关于」同样是压栈子页面，不再用底部弹层。
  */
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
-    onWpmChange: (Int) -> Unit,
     onRetainBrightnessChange: (Boolean) -> Unit,
     onSoundEnabledChange: (Boolean) -> Unit,
     onChannelChange: (Int) -> Unit,
     onLoopChange: (Boolean) -> Unit,
     onHapticChange: (Boolean) -> Unit,
+    onOpenSpeed: () -> Unit,
     onOpenCalibration: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -55,14 +48,10 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp),
             ) {
-                SliderPreference(
+                ArrowPreference(
                     title = "速度",
-                    summary = "点 ${state.unitMillis} ms · 划 ${state.unitMillis * 3} ms",
-                    value = state.wpm.toFloat(),
-                    onValueChange = { onWpmChange(it.roundToInt()) },
-                    valueRange = TimingProfile.MIN_WPM.toFloat()..TimingProfile.MAX_WPM.toFloat(),
-                    steps = (TimingProfile.MAX_WPM - TimingProfile.MIN_WPM) - 1,
-                    valueText = "${state.wpm} WPM",
+                    summary = "当前 ${state.wpm} WPM · 点 ${state.unitMillis} ms · 划 ${state.unitMillis * 3} ms",
+                    onClick = onOpenSpeed,
                 )
                 SwitchPreference(
                     title = "发报声音",
@@ -151,30 +140,6 @@ fun SettingsScreen(
                     title = "关于闪光摩斯",
                     summary = "版本 ${state.appVersion} · 光信号发报机",
                     onClick = onOpenAbout,
-                )
-            }
-        }
-
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 28.dp, vertical = 14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = state.ledReliability,
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "调速后建议先发一段熟悉的报文核对节奏；若整体偏快或偏慢，" +
-                        "再到「时序补偿」微调（每次 5 ms）。",
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    textAlign = TextAlign.Center,
                 )
             }
         }

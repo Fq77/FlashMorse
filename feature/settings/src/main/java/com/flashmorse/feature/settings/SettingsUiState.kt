@@ -44,11 +44,4 @@ data class SettingsUiState(
             retainTorchBrightness -> "手电筒记住上次调光的亮度"
             else -> "每次打开手电筒都回到 100%"
         }
-
-    val ledReliability: String
-        get() = if (unitMillis >= 80) {
-            "当前速度在 LED 通道的可靠范围内"
-        } else {
-            "当前速度超过 15 WPM，LED 通道存在时序失真风险，建议使用屏幕闪光"
-        }
 }
