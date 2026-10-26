@@ -1,6 +1,10 @@
 package com.flashmorse.feature.settings
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -186,8 +190,7 @@ fun CalibrationScreen(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "当前速度 $wpm WPM · 点 ${unitMillis} ms。建议先用默认值发一段熟悉的报文，" +
-                        "若整体「慢了」再逐档增加，每次 5 ms。",
+                    text = "当前速度 $wpm WPM · 单位时长 ${unitMillis} ms。",
                     style = MiuixTheme.textStyles.footnote2,
                     color = colorScheme.onSurfaceVariantSummary,
                 )
@@ -382,6 +385,9 @@ private fun DiagnosticRow(label: String, value: String) {
 /** Miuix 开源项目地址：致谢栏与「设计与许可」共用同一常量。 */
 private const val MIUIX_REPO = "https://github.com/compose-miuix-ui/miuix"
 
+/** 作者主页地址。 */
+private const val AUTHOR_REPO = "https://github.com/Fq77"
+
 /**
  * 关于页。
  *
@@ -472,11 +478,20 @@ fun AboutScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        SmallTitle(text = "致谢")
+        SmallTitle(text = "作者与致谢")
         Card {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 AboutLink(
-                    title = "Miuix",
+                    avatarRes = com.flashmorse.core.designsystem.R.drawable.avatar_fq77,
+                    title = "Fq77",
+                    body = "闪光摩斯的作者",
+                    url = AUTHOR_REPO,
+                    onClick = { uriHandler.openUri(AUTHOR_REPO) },
+                )
+                HorizontalDivider(color = colorScheme.dividerLine)
+                AboutLink(
+                    avatarRes = com.flashmorse.core.designsystem.R.drawable.avatar_miux_author,
+                    title = "YuKongA · Miuix",
                     body = "HyperOS 风格的 Compose 组件库：本应用的配色、卡片、图标与页面骨架都来自它。",
                     url = MIUIX_REPO,
                     onClick = { uriHandler.openUri(MIUIX_REPO) },
@@ -552,9 +567,13 @@ private fun AboutEntry(
     }
 }
 
-/** 致谢条目：整行可点，直接打开仓库地址；URL 原样显示，便于抄写或分享。 */
+/**
+ * 致谢条目：头像 + 名称 + 说明 + 仓库地址，整行可点。
+ * 头像统一圆形裁剪（GitHub 头像方图 → CircleShape）。
+ */
 @Composable
 private fun AboutLink(
+    avatarRes: Int,
     title: String,
     body: String,
     url: String,
@@ -562,41 +581,48 @@ private fun AboutLink(
 ) {
     val colorScheme = MiuixTheme.colorScheme
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(top = 12.dp, bottom = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Image(
+            painter = painterResource(avatarRes),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
             modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onClick)
-                .padding(top = 12.dp, bottom = 12.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MiuixTheme.textStyles.subtitle,
-                    color = colorScheme.onSurfaceContainer,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = body,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = colorScheme.onSurfaceVariantSummary,
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = url,
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = colorScheme.primary,
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = FmIcons.ChevronRight,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = colorScheme.onSurfaceVariantActions,
+                .size(44.dp)
+                .clip(CircleShape),
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MiuixTheme.textStyles.subtitle,
+                color = colorScheme.onSurfaceContainer,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = body,
+                style = MiuixTheme.textStyles.footnote1,
+                color = colorScheme.onSurfaceVariantSummary,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = url,
+                style = MiuixTheme.textStyles.footnote2,
+                color = colorScheme.primary,
             )
         }
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(
+            imageVector = FmIcons.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = colorScheme.onSurfaceVariantActions,
+        )
     }
 }

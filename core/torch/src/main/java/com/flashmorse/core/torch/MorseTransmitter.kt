@@ -34,8 +34,11 @@ class MorseTransmitter(
     private val clock: HighResolutionClock = AndroidHighResolutionClock,
 ) {
 
-    /** 发报侧音：灯亮即响、灯灭即停；是否启用由设置决定。 */
-    private val sidetone = MorseSidetone()
+    /**
+     * 发报侧音：构造即创建音轨（绝不在时序线程懒加载），
+     * 是否出声由设置决定，关闭时静音（轨道仍常驻）。
+     */
+    private val sidetone = MorseSidetone().apply { off() }
 
     @Volatile
     private var soundEnabled: Boolean = false

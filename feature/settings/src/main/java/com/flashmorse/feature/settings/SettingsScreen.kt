@@ -64,6 +64,15 @@ fun SettingsScreen(
                     steps = (TimingProfile.MAX_WPM - TimingProfile.MIN_WPM) - 1,
                     valueText = "${state.wpm} WPM",
                 )
+                // 调速建议紧贴速度项：它回答的是「调多少、去哪调」，
+                // 放在页面别处会与所在设置项脱节
+                Text(
+                    text = "建议先用默认值发一段熟悉的报文；若整体偏快或偏慢，" +
+                        "再到「时序补偿」微调（每次 5 ms）。",
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 10.dp),
+                )
                 SwitchPreference(
                     title = "发报声音",
                     summary = "发报时同步播放滴声（600 Hz），灯亮即响、灯灭即停",
