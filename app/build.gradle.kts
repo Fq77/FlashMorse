@@ -25,6 +25,9 @@ android {
             optimization {
                 enable = true
             }
+            // 个人项目直接用 debug 签名出 release 包：与本机调试包同签名，
+            // adb install -r 可原地升级且保留设置/短语/历史数据。
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {
