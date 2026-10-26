@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      全局锁定深色的起点：窗口底色直接给黑，避免冷启动瞬间出现白色闪屏——
+      夜间场景下这一下白闪就足以破坏暗适应（规划文档 §7.2）。
+    -->
+    <style name="Theme.FlashMorse" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

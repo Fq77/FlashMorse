@@ -1,0 +1,167 @@
+package com.flashmorse.core.designsystem.component
+
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.flashmorse.core.model.MorseSymbol
+import com.flashmorse.core.model.ScriptCell
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+/**
+ * 符号流视图（规划文档 §7.5 第 2 段）。
+ *
+ * 直接 `Canvas` 绘制而不是逐符号创建 Composable：发送中每 ~120 ms 一次状态刷新，
+ * 逐元素组合会带来不必要的重组开销。
+ *
+ * 视图采用「窗口化」渲染——只绘制当前播放位置附近的符号段落，长报文也不会把
+ * 符号压成噪点；已发部分高亮、未发部分降低不透明度，当前符号使用主色。
+ */
+@Composable
+fun MorseStream(
+    cells: List<ScriptCell>,
+    activeIndex: Int,
+    modifier: Modifier = Modifier,
+    barHeight: Dp = 7.dp,
+) {
+    val colorScheme = MiuixTheme.colorScheme
+    val activeColor = colorScheme.primary
+    val sentColor = colorScheme.onBackground
+    val pendingColor = colorScheme.onBackgroundVariant.copy(alpha = 0.28f)
+
+    val metrics = rememberStreamMetrics(barHeight)
+    val widths = remember(cells, metrics) { cells.map { metrics.widthOf(it.symbol) } }
+
+    BoxWithConstraints(modifier = modifier) {
+        val availableDp = maxWidth.value
+        val target = remember(widths, activeIndex, availableDp) {
+            computeStart(widths, activeIndex, availableDp)
+        }
+        val startX by animateFloatAsState(
+            targetValue = target,
+            animationSpec = tween(durationMillis = 140),
+            label = "morseStreamScroll",
+        )
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val barPx = metrics.barHeight.toPx()
+            val radius = CornerRadius(barPx / 2f, barPx / 2f)
+            val centerY = size.height / 2f
+            var xDp = -startX
+
+            for (index in cells.indices) {
+                val width = widths[index]
+                if (xDp + width > 0f && xDp < availableDp) {
+                    val symbol = cells[index].symbol
+                    val color = when {
+                        index == activeIndex -> activeColor
+                        index < activeIndex -> sentColor
+                        else -> pendingColor
+                    }
+                    val x = xDp.dp.toPx()
+                    when (symbol) {
+                        MorseSymbol.Dot -> drawCircle(
+                            color = color,
+                            radius = barPx / 2f,
+                            center = Offset(x + (width.dp.toPx() / 2f), centerY),
+                        )
+
+                        MorseSymbol.Dash -> drawRoundRect(
+                            color = color,
+                            topLeft = Offset(x, centerY - barPx / 2f),
+                            size = Size(width.dp.toPx(), barPx),
+                            cornerRadius = radius,
+                        )
+
+                        else -> Unit // 间隔不绘制
+                    }
+                }
+                if (xDp > availableDp) break
+                xDp += width
+            }
+        }
+    }
+}
+
+/** 单个字符的点划模式，供对照表、短语行与发送卡复用。 */
+@Composable
+fun MorsePattern(
+    pattern: String,
+    modifier: Modifier = Modifier,
+    height: Dp = 6.dp,
+    color: Color = MiuixTheme.colorScheme.onBackgroundVariant,
+) {
+    Canvas(modifier = modifier) {
+        val barPx = height.toPx()
+        val dotW = barPx
+        val dashW = barPx * 3f
+        val gap = barPx * 0.9f
+        val centerY = size.height / 2f
+        var x = 0f
+        pattern.forEach { ch ->
+            when (ch) {
+                '.' -> {
+                    drawCircle(color = color, radius = barPx / 2f, center = Offset(x + dotW / 2f, centerY))
+                    x += dotW + gap
+                }
+
+                '-' -> {
+                    drawRoundRect(
+                        color = color,
+                        topLeft = Offset(x, centerY - barPx / 2f),
+                        size = Size(dashW, barPx),
+                        cornerRadius = CornerRadius(barPx / 2f, barPx / 2f),
+                    )
+                    x += dashW + gap
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberStreamMetrics(barHeight: Dp): StreamMetrics =
+    remember(barHeight) { StreamMetrics(barHeight) }
+
+private class StreamMetrics(val barHeight: Dp) {
+    private val dotWidth = barHeight + 1.dp
+    private val dashWidth = (barHeight + 1.dp) * 3
+    private val elementGap = barHeight * 0.75f
+    private val charGap = elementGap * 3
+    private val wordGap = elementGap * 7
+
+    fun widthOf(symbol: MorseSymbol): Float = when (symbol) {
+        MorseSymbol.Dot -> dotWidth.value
+        MorseSymbol.Dash -> dashWidth.value
+        MorseSymbol.ElementGap -> elementGap.value
+        MorseSymbol.CharGap -> charGap.value
+        MorseSymbol.WordGap -> wordGap.value
+    }
+}
+
+/** 让当前符号稳定落在视口左侧 45% 处，右侧始终能看到即将发送的内容。 */
+private fun computeStart(
+    widths: List<Float>,
+    activeIndex: Int,
+    availableDp: Float,
+): Float {
+    if (widths.isEmpty()) return 0f
+    val total = widths.sum()
+    if (total <= availableDp) return 0f
+    val index = activeIndex.coerceIn(0, widths.lastIndex)
+    var cumulative = 0f
+    for (i in 0 until index) cumulative += widths[i]
+    val target = cumulative - availableDp * 0.45f
+    return target.coerceIn(0f, total - availableDp)
+}

@@ -1,0 +1,45 @@
+package com.flashmorse.app.navigation
+
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.flashmorse.core.designsystem.icon.FmIcons
+import kotlinx.serialization.Serializable
+import top.yukonga.miuix.kmp.nav.core.NavKey
+
+/**
+ * 路由表。
+ *
+ * 一级页面（发报 / 短语 / 对照）通过 [HomeTab] 切换，不占路由层级；
+ * 设置与设置内的三个二级项都是压栈路由，因此天然带返回语义。
+ */
+@Serializable
+sealed interface Route : NavKey {
+
+    @Serializable
+    data object Home : Route
+
+    @Serializable
+    data object Manual : Route
+
+    @Serializable
+    data object Settings : Route
+
+    @Serializable
+    data object Calibration : Route
+
+    @Serializable
+    data object Diagnostics : Route
+
+    @Serializable
+    data object About : Route
+}
+
+/** 底部导航的一级入口（设置已移到顶栏，不再占底栏）。 */
+enum class HomeTab(
+    val label: String,
+    val title: String,
+    val icon: ImageVector,
+) {
+    Sender("发报", "闪光摩斯", FmIcons.Send),
+    Library("短语", "短语与历史", FmIcons.Notes),
+    Learn("对照", "摩斯对照表", FmIcons.Grid),
+}
