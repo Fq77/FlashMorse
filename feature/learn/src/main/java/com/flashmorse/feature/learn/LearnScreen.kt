@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.flashmorse.core.designsystem.component.MorsePattern
 import com.flashmorse.core.model.MorseLetter
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
@@ -182,10 +184,24 @@ private fun DetailCard(
                 )
             }
 
-            TextButton(
-                text = if (playing) "停止" else "试闪",
+            // 试闪与停止同钮：实色按钮（蓝 = 试闪、红 = 停止），与全局按钮色彩语义一致
+            Button(
                 onClick = onPreview,
-            )
+                colors = if (playing) {
+                    ButtonDefaults.buttonColors(
+                        color = colorScheme.error,
+                        contentColor = colorScheme.onError,
+                    )
+                } else {
+                    ButtonDefaults.buttonColorsPrimary()
+                },
+            ) {
+                Text(
+                    text = if (playing) "停止" else "试闪",
+                    style = MiuixTheme.textStyles.body1,
+                    color = if (playing) colorScheme.onError else colorScheme.onPrimary,
+                )
+            }
         }
     }
 }

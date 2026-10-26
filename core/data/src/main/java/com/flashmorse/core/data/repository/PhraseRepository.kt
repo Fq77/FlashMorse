@@ -77,12 +77,12 @@ class PhraseRepository(context: Context) {
         _phrases.value = next
     }
 
-    /** 上移 / 下移，返回是否发生了移动。 */
-    suspend fun move(id: String, offset: Int): Boolean = mutex.withLock {
+    /** 把 [id] 移动到第 [toIndex] 位（拖拽排序），返回是否发生了移动。 */
+    suspend fun moveTo(id: String, toIndex: Int): Boolean = mutex.withLock {
         val list = _phrases.value.toMutableList()
         val from = list.indexOfFirst { it.id == id }
         if (from < 0) return@withLock false
-        val to = (from + offset).coerceIn(0, list.lastIndex)
+        val to = toIndex.coerceIn(0, list.lastIndex)
         if (to == from) return@withLock false
         val item = list.removeAt(from)
         list.add(to, item)

@@ -43,17 +43,15 @@ fun LibraryRoute(
         onPlay = viewModel::onPlay,
         onStop = viewModel::onStop,
         onNewPhrase = { viewModel.onEditorOpen(null) },
-        onPhraseLongPress = viewModel::onMenuOpen,
         onHistoryDelete = viewModel::onHistoryDelete,
         onHistoryClear = viewModel::onHistoryClear,
         onEditorLabelChange = viewModel::onEditorLabelChange,
         onEditorPayloadChange = viewModel::onEditorPayloadChange,
         onEditorSave = viewModel::onEditorSave,
         onEditorDismiss = viewModel::onEditorDismiss,
-        onMenuDismiss = viewModel::onMenuDismiss,
         onEdit = { viewModel.onEditorOpen(it) },
+        onReorder = viewModel::onReorder,
         onDelete = viewModel::onDelete,
-        onMove = viewModel::onMove,
         modifier = modifier,
     )
 }

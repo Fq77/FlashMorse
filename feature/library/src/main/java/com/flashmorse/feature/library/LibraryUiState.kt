@@ -27,7 +27,6 @@ data class LibraryUiState(
     val phrases: List<PhraseItem> = emptyList(),
     val history: List<HistoryEntry> = emptyList(),
     val editor: PhraseEditor? = null,
-    val menuTarget: Phrase? = null,
     val playingText: String? = null,
     val isPlaying: Boolean = false,
     val wpm: Int = 10,

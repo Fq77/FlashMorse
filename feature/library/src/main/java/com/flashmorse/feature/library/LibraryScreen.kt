@@ -1,5 +1,6 @@
 package com.flashmorse.feature.library
 
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,28 +10,37 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.flashmorse.core.designsystem.component.MorsePattern
 import com.flashmorse.core.designsystem.component.SectionHeader
 import com.flashmorse.core.designsystem.icon.FmIcons
-import androidx.compose.ui.graphics.Color
 import com.flashmorse.core.model.HistoryEntry
 import com.flashmorse.core.model.Phrase
 import java.text.SimpleDateFormat
@@ -39,6 +49,7 @@ import java.util.Locale
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -55,6 +66,9 @@ import top.yukonga.miuix.kmp.utils.PressFeedbackType
  *
  * 列表项的主操作是「立即发送」而不是「载入到发报页」——这一页的典型用途是
  * 隔河/隔街的一次性暗号，多一次跳转就多一次失败机会。
+ *
+ * 行内操作布局：`[编辑] 内容 [删除]`，两侧都是无背景的实色 Miuix 图标；
+ * 排序为**长按拖拽**，不再有长按菜单。
  */
 @Composable
 fun LibraryScreen(
@@ -63,24 +77,30 @@ fun LibraryScreen(
     onPlay: (String) -> Unit,
     onStop: () -> Unit,
     onNewPhrase: () -> Unit,
-    onPhraseLongPress: (Phrase) -> Unit,
+    onReorder: (Int, Int) -> Unit,
     onHistoryDelete: (String) -> Unit,
     onHistoryClear: () -> Unit,
     onEditorLabelChange: (String) -> Unit,
     onEditorPayloadChange: (String) -> Unit,
     onEditorSave: () -> Unit,
     onEditorDismiss: () -> Unit,
-    onMenuDismiss: () -> Unit,
     onEdit: (Phrase) -> Unit,
     onDelete: (Phrase) -> Unit,
-    onMove: (Phrase, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MiuixTheme.colorScheme
 
-    // 历史记录是「删了就没有」的数据，两个入口（单条删除 / 清空）都先过一遍确认。
-    var pendingDelete by remember { mutableStateOf<HistoryEntry?>(null) }
+    // 删除是不可逆操作：短语单条 / 历史单条 / 历史清空都先过一遍确认。
+    var pendingPhraseDelete by remember { mutableStateOf<Phrase?>(null) }
+    var pendingHistoryDelete by remember { mutableStateOf<HistoryEntry?>(null) }
     var pendingClear by remember { mutableStateOf(false) }
+
+    // ---- 拖拽排序（长按拖动）----
+    val listState = rememberLazyListState()
+    var draggingKey by remember { mutableStateOf<String?>(null) }
+    var dragOffsetPx by remember { mutableFloatStateOf(0f) }
+    val phrasesState by rememberUpdatedState(state.phrases)
+    val currentOnReorder by rememberUpdatedState(onReorder)
 
     Column(modifier = modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(6.dp))
@@ -94,6 +114,7 @@ fun LibraryScreen(
         Box(modifier = Modifier.weight(1f)) {
             when (state.tab) {
                 LibraryTab.Phrases -> LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 104.dp),
                 ) {
@@ -102,7 +123,7 @@ fun LibraryScreen(
                             text = "短语库",
                             trailing = {
                                 Text(
-                                    text = "点击立即发送，长按移动位置，左滑删除",
+                                    text = "点击发送，长按拖动排序",
                                     style = MiuixTheme.textStyles.footnote2,
                                     color = colorScheme.onSurfaceVariantSummary,
                                 )
@@ -113,11 +134,67 @@ fun LibraryScreen(
                         item { EmptyHint("还没有短语，点右下角 + 新建一条") }
                     }
                     items(state.phrases, key = { it.phrase.id }) { item ->
-                        PhraseRow(
-                            item = item,
-                            onClick = { onPlay(item.phrase.payload) },
-                            onLongPress = { onPhraseLongPress(item.phrase) },
-                        )
+                        val dragging = item.phrase.id == draggingKey
+                        // 拖拽手势挂在行的内容层（叶子节点）：Miuix Card 的按压反馈
+                        // 也是事件消费者，挂在更上层会被它的 Main-pass 处理抢在前面。
+                        val dragModifier = Modifier.pointerInput(item.phrase.id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    draggingKey = item.phrase.id
+                                    dragOffsetPx = 0f
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    val dragged = listState.layoutInfo.visibleItemsInfo
+                                        .firstOrNull { it.key == item.phrase.id }
+                                    if (dragged == null) {
+                                        return@detectDragGesturesAfterLongPress
+                                    }
+                                    dragOffsetPx += dragAmount.y
+                                    val centerY = dragged.offset + dragged.size / 2 + dragOffsetPx
+                                    val target = listState.layoutInfo.visibleItemsInfo.firstOrNull {
+                                        it.key is String &&
+                                            it.key != item.phrase.id &&
+                                            centerY.toInt() >= it.offset &&
+                                            centerY.toInt() < it.offset + it.size
+                                    }
+                                    if (target != null) {
+                                        val from = phrasesState.indexOfFirst { it.phrase.id == item.phrase.id }
+                                        val to = phrasesState.indexOfFirst { it.phrase.id == target.key }
+                                        if (from >= 0 && to >= 0 && from != to) {
+                                            currentOnReorder(from, to)
+                                            // 换位后补回偏移，保持被拖项始终跟手
+                                            dragOffsetPx -= (target.offset - dragged.offset)
+                                        }
+                                    }
+                                },
+                                onDragEnd = {
+                                    draggingKey = null
+                                    dragOffsetPx = 0f
+                                },
+                                onDragCancel = {
+                                    draggingKey = null
+                                    dragOffsetPx = 0f
+                                },
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .animateItem()
+                                .zIndex(if (dragging) 1f else 0f)
+                                .graphicsLayer {
+                                    if (dragging) translationY = dragOffsetPx
+                                },
+                        ) {
+                            PhraseRow(
+                                item = item,
+                                dragModifier = dragModifier,
+                                onClick = { onPlay(item.phrase.payload) },
+                                onEdit = { onEdit(item.phrase) },
+                                onDelete = { pendingPhraseDelete = item.phrase },
+                            )
+                        }
                     }
                 }
 
@@ -133,10 +210,19 @@ fun LibraryScreen(
                         HistoryRow(
                             entry = entry,
                             onClick = { onPlay(entry.text) },
-                            onDelete = { pendingDelete = entry },
+                            onDelete = { pendingHistoryDelete = entry },
                         )
                     }
                 }
+            }
+
+            // 播放状态卡片：覆盖在列表正中央；投影 + 高一档的表面色提供层次感
+            if (state.isPlaying) {
+                PlayingOverlay(
+                    text = state.playingText ?: "",
+                    onStop = onStop,
+                    modifier = Modifier.align(Alignment.Center),
+                )
             }
 
             // 两个板块共用同一个右下角主操作位：短语=新建，历史=清空
@@ -172,14 +258,6 @@ fun LibraryScreen(
                 }
             }
         }
-
-        if (state.isPlaying) {
-            PlayingBanner(
-                text = state.playingText ?: "",
-                onStop = onStop,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            )
-        }
     }
 
     state.editor?.let { editor ->
@@ -192,80 +270,34 @@ fun LibraryScreen(
         )
     }
 
-    state.menuTarget?.let { phrase ->
-        OverlayDialog(
-            title = phrase.label,
-            summary = phrase.payload,
-            show = true,
-            onDismissRequest = onMenuDismiss,
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    MenuAction(
-                        label = "上移",
-                        icon = FmIcons.Up,
-                        container = colorScheme.secondaryContainer,
-                        content = colorScheme.onSecondaryContainer,
-                        onClick = { onMove(phrase, -1) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    MenuAction(
-                        label = "下移",
-                        icon = FmIcons.Down,
-                        container = colorScheme.secondaryContainer,
-                        content = colorScheme.onSecondaryContainer,
-                        onClick = { onMove(phrase, 1) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    MenuAction(
-                        label = "编辑",
-                        icon = FmIcons.Edit,
-                        container = colorScheme.primary,
-                        content = colorScheme.onPrimary,
-                        onClick = { onEdit(phrase) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    MenuAction(
-                        label = "删除",
-                        icon = FmIcons.Delete,
-                        container = colorScheme.error,
-                        content = colorScheme.onError,
-                        onClick = { onDelete(phrase) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                TextButton(
-                    text = "取消",
-                    onClick = onMenuDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
+    pendingPhraseDelete?.let { phrase ->
+        DeleteConfirmDialog(
+            title = "删除这条短语？",
+            summary = "「${phrase.label}」将从短语库中移除，无法恢复。",
+            confirmLabel = "删除",
+            onConfirm = {
+                onDelete(phrase)
+                pendingPhraseDelete = null
+            },
+            onDismiss = { pendingPhraseDelete = null },
+        )
     }
 
-    pendingDelete?.let { entry ->
-        HistoryConfirmDialog(
+    pendingHistoryDelete?.let { entry ->
+        DeleteConfirmDialog(
             title = "删除这条记录？",
             summary = "「${entry.text}」将从发送记录中移除，无法恢复。",
             confirmLabel = "删除",
             onConfirm = {
                 onHistoryDelete(entry.id)
-                pendingDelete = null
+                pendingHistoryDelete = null
             },
-            onDismiss = { pendingDelete = null },
+            onDismiss = { pendingHistoryDelete = null },
         )
     }
 
     if (pendingClear) {
-        HistoryConfirmDialog(
+        DeleteConfirmDialog(
             title = "清空发送记录？",
             summary = "共 ${state.history.size} 条记录将被删除，无法恢复。",
             confirmLabel = "清空",
@@ -285,7 +317,7 @@ fun LibraryScreen(
  * 与短语编辑、SOS 免责保持同一套弹层语汇。
  */
 @Composable
-private fun HistoryConfirmDialog(
+private fun DeleteConfirmDialog(
     title: String,
     summary: String,
     confirmLabel: String,
@@ -317,8 +349,10 @@ private fun HistoryConfirmDialog(
 @Composable
 private fun PhraseRow(
     item: PhraseItem,
+    dragModifier: Modifier,
     onClick: () -> Unit,
-    onLongPress: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val colorScheme = MiuixTheme.colorScheme
 
@@ -329,14 +363,21 @@ private fun PhraseRow(
         pressFeedbackType = PressFeedbackType.Sink,
         showIndication = true,
         onClick = onClick,
-        onLongPress = onLongPress,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .then(dragModifier)
+                .padding(start = 4.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            RowIconAction(
+                icon = FmIcons.Edit,
+                label = "编辑",
+                tint = colorScheme.primary,
+                onClick = onEdit,
+            )
+
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -352,15 +393,15 @@ private fun PhraseRow(
                             color = colorScheme.primary,
                         )
                     }
-                    // 点划预览紧贴标题，形成「中文名 + 电码形态」的一组信息
+                    // 点划预览紧贴标题；宽度按报文长度自适应，SOS 这类短报文完整显示
                     if (item.previewPattern.isNotEmpty()) {
                         Spacer(modifier = Modifier.width(10.dp))
                         MorsePattern(
                             pattern = item.previewPattern,
                             modifier = Modifier
-                                .width(52.dp)
-                                .height(6.dp),
-                            height = 6.dp,
+                                .width(previewWidth(item.previewPattern))
+                                .height(5.dp),
+                            height = 5.dp,
                             color = colorScheme.onSurfaceContainerVariant,
                         )
                     }
@@ -373,11 +414,11 @@ private fun PhraseRow(
                 )
             }
 
-            Icon(
-                imageVector = FmIcons.ChevronRight,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = colorScheme.onSurfaceVariantActions,
+            RowIconAction(
+                icon = FmIcons.Delete,
+                label = "删除",
+                tint = colorScheme.error,
+                onClick = onDelete,
             )
         }
     }
@@ -403,7 +444,7 @@ private fun HistoryRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 6.dp, top = 12.dp, bottom = 12.dp),
+                .padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -419,56 +460,106 @@ private fun HistoryRow(
                     color = colorScheme.onSurfaceVariantSummary,
                 )
             }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = FmIcons.Delete,
-                    contentDescription = "删除记录",
-                    modifier = Modifier.size(16.dp),
-                    tint = colorScheme.onSurfaceVariantActions,
-                )
-            }
+
+            RowIconAction(
+                icon = FmIcons.Delete,
+                label = "删除",
+                tint = colorScheme.error,
+                onClick = onDelete,
+            )
         }
     }
 }
 
+/** 行内图标操作：无背景的实色 Miuix 图标，颜色即语义（蓝 = 编辑、红 = 删除）。 */
 @Composable
-private fun PlayingBanner(
+private fun RowIconAction(
+    icon: ImageVector,
+    label: String,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            modifier = Modifier.size(22.dp),
+            tint = tint,
+        )
+    }
+}
+
+/**
+ * 预览宽度：按点划单元总量换算（与 [MorsePattern] 的绘制规则一致：
+ * 点 1、划 3、符号后间距 0.9、字母间距 0.9），SOS（9 符号）完整显示，
+ * 更长的报文封顶 140dp 截断。
+ */
+private fun previewWidth(pattern: String): Dp {
+    var units = 0f
+    pattern.forEach { ch ->
+        when (ch) {
+            '.' -> units += 1.9f
+            '-' -> units += 3.9f
+            ' ' -> units += 0.9f
+        }
+    }
+    return (units * 5).dp.coerceIn(40.dp, 140.dp)
+}
+
+/**
+ * 发送中的状态卡片：覆盖在列表正中央，纵向排布——
+ * 上方是「正在发送」与报文文本，下方是停止按钮。
+ * 投影 + 比列表高一档的表面色，保证与下层内容有清晰层次。
+ */
+@Composable
+private fun PlayingOverlay(
     text: String,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Row(
+    val colorScheme = MiuixTheme.colorScheme
+    val shape = RoundedCornerShape(24.dp)
+
+    Card(
+        modifier = modifier
+            .shadow(elevation = 12.dp, shape = shape)
+            .width(260.dp),
+        cornerRadius = 24.dp,
+        colors = CardDefaults.defaultColors(color = colorScheme.surfaceContainerHigh),
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text = "正在发送",
                 style = MiuixTheme.textStyles.subtitle,
-                color = MiuixTheme.colorScheme.primary,
+                color = colorScheme.primary,
             )
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = text,
                 style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.weight(1f),
+                color = colorScheme.onSurfaceVariantSummary,
+                textAlign = TextAlign.Center,
+                maxLines = 3,
             )
+            Spacer(modifier = Modifier.height(18.dp))
             Button(
                 onClick = onStop,
-                modifier = Modifier.size(38.dp),
-                cornerRadius = 19.dp,
+                modifier = Modifier.size(64.dp),
+                cornerRadius = 32.dp,
                 colors = ButtonDefaults.buttonColors(
-                    color = MiuixTheme.colorScheme.error,
-                    contentColor = MiuixTheme.colorScheme.onError,
+                    color = colorScheme.error,
+                    contentColor = colorScheme.onError,
                 ),
             ) {
                 Icon(
                     imageVector = FmIcons.Close,
                     contentDescription = "停止发送",
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(28.dp),
                 )
             }
         }
@@ -545,34 +636,6 @@ private fun PhraseEditorDialog(
             onClick = onDismiss,
             modifier = Modifier.fillMaxWidth(),
         )
-    }
-}
-
-/**
- * 长按菜单里的实色操作按钮：颜色编码操作性质——
- * 灰 = 移动（可逆）、主题蓝 = 编辑（可逆）、红 = 删除（不可逆）。
- */
-@Composable
-private fun MenuAction(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    container: Color,
-    content: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier,
-        colors = ButtonDefaults.buttonColors(color = container, contentColor = content),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(text = label, style = MiuixTheme.textStyles.footnote1)
     }
 }
 

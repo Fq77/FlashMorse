@@ -109,11 +109,9 @@ class LibraryViewModel(
     fun onStop() = transmitter.stop()
 
     fun onEditorOpen(phrase: Phrase? = null) {
-        // 先收起长按菜单，等它的退场动画结束再开编辑框：
-        // 同一帧内「移除一个 OverlayDialog + 添加另一个」时，popup 宿主的注销与注册
-        // 会挤在同一帧，容易让新弹层的入场动画从上一层的位移中途开始，出现闪烁。
-        _state.update { it.copy(menuTarget = null) }
         viewModelScope.launch {
+            // 略作延迟再弹框：行内删除/编辑的确认框退场动画还在进行时，
+            // 同帧注册新弹层容易出现入场闪烁。
             delay(DIALOG_HANDOFF_MILLIS)
             _state.update {
                 it.copy(
@@ -153,26 +151,21 @@ class LibraryViewModel(
         _state.update { it.copy(editor = null) }
     }
 
-    fun onMenuOpen(phrase: Phrase) {
-        _state.update { it.copy(menuTarget = phrase) }
-    }
-
-    fun onMenuDismiss() {
-        _state.update { it.copy(menuTarget = null) }
-    }
-
     fun onDelete(phrase: Phrase) {
-        viewModelScope.launch {
-            phraseRepository.delete(phrase.id)
-            _state.update { it.copy(menuTarget = null) }
-        }
+        viewModelScope.launch { phraseRepository.delete(phrase.id) }
     }
 
-    fun onMove(phrase: Phrase, offset: Int) {
-        viewModelScope.launch {
-            phraseRepository.move(phrase.id, offset)
-            _state.update { it.copy(menuTarget = null) }
-        }
+    /**
+     * 拖拽排序：[fromIndex] 的短语移到 [toIndex]。
+     *
+     * 拖拽过程中目标索引由 UI 按实际落点计算，这里只负责落库——
+     * phrases Flow 回流后列表自动重排，无需本地再维护一份顺序。
+     */
+    fun onReorder(fromIndex: Int, toIndex: Int) {
+        val phrases = _state.value.phrases
+        val id = phrases.getOrNull(fromIndex)?.phrase?.id ?: return
+        if (toIndex !in phrases.indices) return
+        viewModelScope.launch { phraseRepository.moveTo(id, toIndex) }
     }
 
     fun onHistoryDelete(entryId: String) {
@@ -184,7 +177,11 @@ class LibraryViewModel(
     }
 
     private fun Phrase.toItem(): PhraseItem {
-        val pattern = encoder.encode(payload).letters.firstOrNull()?.pattern ?: ""
+        // 预览必须是**完整报文**的点划形态（如 SOS = "... --- ..."），
+        // 只取首字母会让用户看到与报文对不上的信号。
+        val pattern = encoder.encode(payload)
+            .letters
+            .joinToString(separator = " ") { it.pattern }
         return PhraseItem(phrase = this, previewPattern = pattern)
     }
 
