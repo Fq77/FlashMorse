@@ -47,6 +47,7 @@ class SettingsRepository(context: Context) {
             prefs[Keys.LastMessage] = next.lastMessage
             prefs[Keys.GlareHint] = next.glareHintShown
             prefs[Keys.Brightness] = Brightness.clampPercent(next.brightnessPercent)
+            prefs[Keys.RetainBrightness] = next.retainTorchBrightness
         }
     }
 
@@ -66,6 +67,10 @@ class SettingsRepository(context: Context) {
 
     suspend fun markGlareHintShown() = update { it.copy(glareHintShown = true) }
 
+    suspend fun setRetainBrightness(retain: Boolean) = update {
+        it.copy(retainTorchBrightness = retain)
+    }
+
     suspend fun setBrightness(percent: Int) = update {
         it.copy(brightnessPercent = Brightness.clampPercent(percent))
     }
@@ -84,6 +89,7 @@ class SettingsRepository(context: Context) {
         brightnessPercent = Brightness.clampPercent(
             this[Keys.Brightness] ?: Brightness.DEFAULT_PERCENT,
         ),
+        retainTorchBrightness = this[Keys.RetainBrightness] ?: true,
     )
 
     private object Keys {
@@ -96,5 +102,6 @@ class SettingsRepository(context: Context) {
         val LastMessage = stringPreferencesKey("last_message")
         val GlareHint = booleanPreferencesKey("glare_hint_shown")
         val Brightness = intPreferencesKey("brightness_percent")
+        val RetainBrightness = booleanPreferencesKey("retain_torch_brightness")
     }
 }

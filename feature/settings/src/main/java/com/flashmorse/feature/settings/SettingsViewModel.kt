@@ -50,6 +50,7 @@ class SettingsViewModel(
                         haptic = settings.hapticFeedback,
                         compensationMillis = settings.compensationMillis,
                         brightnessPercent = settings.brightnessPercent,
+                        retainTorchBrightness = settings.retainTorchBrightness,
                     )
                 }
             }
@@ -71,10 +72,8 @@ class SettingsViewModel(
      * 亮度只在空闲时生效（[MorseTransmitter.setBrightness] 内部拦截），
      * 这里只负责落盘，实际下发由 Application 级的 settings 收集器统一做。
      */
-    fun onBrightnessChange(percent: Int) {
-        viewModelScope.launch {
-            settingsRepository.setBrightness(Brightness.clampPercent(percent))
-        }
+    fun onRetainBrightnessChange(retain: Boolean) {
+        viewModelScope.launch { settingsRepository.setRetainBrightness(retain) }
     }
 
     fun onChannelChange(index: Int) {

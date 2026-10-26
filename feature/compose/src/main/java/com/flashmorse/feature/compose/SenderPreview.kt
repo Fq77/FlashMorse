@@ -46,7 +46,6 @@ private fun SenderScreenIdlePreview() {
                 onToggleLight = {},
                 onTorchBrightnessPreview = {},
                 onTorchBrightnessCommit = {},
-                onPauseToggle = {},
                 onStop = {},
             )
         }
@@ -87,7 +86,6 @@ private fun SenderScreenTransmittingPreview() {
                 onToggleLight = {},
                 onTorchBrightnessPreview = {},
                 onTorchBrightnessCommit = {},
-                onPauseToggle = {},
                 onStop = {},
             )
         }

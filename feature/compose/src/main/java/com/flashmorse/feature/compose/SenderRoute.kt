@@ -53,7 +53,6 @@ fun SenderRoute(
         onToggleLight = viewModel::onToggleConstantLight,
         onTorchBrightnessPreview = viewModel::onTorchBrightnessPreview,
         onTorchBrightnessCommit = viewModel::onTorchBrightnessCommit,
-        onPauseToggle = viewModel::onPauseToggle,
         onStop = viewModel::onStop,
         modifier = modifier,
     )

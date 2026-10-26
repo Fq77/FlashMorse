@@ -30,11 +30,14 @@ import androidx.compose.ui.unit.dp
 import com.flashmorse.core.designsystem.component.MorsePattern
 import com.flashmorse.core.designsystem.component.SectionHeader
 import com.flashmorse.core.designsystem.icon.FmIcons
+import androidx.compose.ui.graphics.Color
 import com.flashmorse.core.model.HistoryEntry
 import com.flashmorse.core.model.Phrase
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.Icon
@@ -200,30 +203,42 @@ fun LibraryScreen(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    TextButton(
-                        text = "上移",
+                    MenuAction(
+                        label = "上移",
+                        icon = FmIcons.Up,
+                        container = colorScheme.secondaryContainer,
+                        content = colorScheme.onSecondaryContainer,
                         onClick = { onMove(phrase, -1) },
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(
-                        text = "下移",
+                    MenuAction(
+                        label = "下移",
+                        icon = FmIcons.Down,
+                        container = colorScheme.secondaryContainer,
+                        content = colorScheme.onSecondaryContainer,
                         onClick = { onMove(phrase, 1) },
                         modifier = Modifier.weight(1f),
                     )
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    TextButton(
-                        text = "编辑",
+                    MenuAction(
+                        label = "编辑",
+                        icon = FmIcons.Edit,
+                        container = colorScheme.primary,
+                        content = colorScheme.onPrimary,
                         onClick = { onEdit(phrase) },
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(
-                        text = "删除",
+                    MenuAction(
+                        label = "删除",
+                        icon = FmIcons.Delete,
+                        container = colorScheme.error,
+                        content = colorScheme.onError,
                         onClick = { onDelete(phrase) },
                         modifier = Modifier.weight(1f),
                     )
@@ -507,17 +522,51 @@ private fun PhraseEditorDialog(
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(12.dp))
-        TextButton(
-            text = "保存",
+        Button(
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
-        )
+            colors = ButtonDefaults.buttonColorsPrimary(),
+        ) {
+            Text(
+                text = "保存",
+                style = MiuixTheme.textStyles.body1,
+                color = MiuixTheme.colorScheme.onPrimary,
+            )
+        }
         Spacer(modifier = Modifier.height(4.dp))
         TextButton(
             text = "取消",
             onClick = onDismiss,
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
+
+/**
+ * 长按菜单里的实色操作按钮：颜色编码操作性质——
+ * 灰 = 移动（可逆）、主题蓝 = 编辑（可逆）、红 = 删除（不可逆）。
+ */
+@Composable
+private fun MenuAction(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    container: Color,
+    content: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        colors = ButtonDefaults.buttonColors(color = container, contentColor = content),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(text = label, style = MiuixTheme.textStyles.footnote1)
     }
 }
 

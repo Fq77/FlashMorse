@@ -25,7 +25,7 @@ class FlashMorseApplication : Application() {
         appScope.launch {
             container.settingsRepository.settings.collect { settings ->
                 container.transmitter.setBrightness(
-                    Brightness.percentToFraction(settings.brightnessPercent),
+                    Brightness.percentToFraction(settings.effectiveBrightnessPercent),
                 )
             }
         }

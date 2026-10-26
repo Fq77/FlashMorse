@@ -22,9 +22,15 @@ data class Settings(
     val lastMessage: String = "SOS",
     /** 是否已看过「强光环境建议遮挡屏幕」提示 */
     val glareHintShown: Boolean = false,
-    /** 发光亮度（百分比）：屏幕通道按灰度、LED 通道按硬件档位映射，见 [Brightness] */
+    /** 手电筒亮度（百分比），仅 LED 通道使用；见 [Brightness] */
     val brightnessPercent: Int = Brightness.DEFAULT_PERCENT,
+    /** 是否保留手电筒亮度：关闭后每次打开手电筒都回到 100%（已调的值仍被记住，重新开启即恢复） */
+    val retainTorchBrightness: Boolean = true,
 ) {
     val timingProfile: TimingProfile
         get() = TimingProfile.forWpm(wpm, compensationMillis)
+
+    /** 实际下发给手电筒的亮度：不保留时恒为默认值，已调的值仍留在 [brightnessPercent] */
+    val effectiveBrightnessPercent: Int
+        get() = if (retainTorchBrightness) brightnessPercent else Brightness.DEFAULT_PERCENT
 }

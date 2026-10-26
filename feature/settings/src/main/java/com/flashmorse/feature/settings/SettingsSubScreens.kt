@@ -79,7 +79,7 @@ fun CalibrationRoute(
     CalibrationScreen(
         compensationMillis = value,
         wpm = settings.wpm,
-        brightnessPercent = settings.brightnessPercent,
+        brightnessPercent = settings.effectiveBrightnessPercent,
         previewing = previewing,
         onValueChange = { value = (it / 5f).roundToInt() * 5 },
         onValueCommitted = {
@@ -251,7 +251,7 @@ fun DiagnosticsRoute(
         cameraId = capabilities?.cameraId,
         supportsStrength = transmitter.ledSupportsBrightness,
         maxStrengthLevel = capabilities?.maxStrengthLevel ?: 0,
-        brightnessPercent = settings.brightnessPercent,
+        brightnessPercent = settings.effectiveBrightnessPercent,
         thermalLevel = thermal,
         wpm = settings.wpm,
         unitMillis = settings.timingProfile.unitMillis,
@@ -477,14 +477,9 @@ fun AboutScreen(
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 AboutLink(
                     title = "Miuix",
-                    body = "界面使用的 HyperOS 风格 Compose 组件库，本应用的配色、卡片与页面骨架都来自它。",
+                    body = "HyperOS 风格的 Compose 组件库：本应用的配色、卡片、图标与页面骨架都来自它。",
                     url = MIUIX_REPO,
                     onClick = { uriHandler.openUri(MIUIX_REPO) },
-                )
-                AboutEntry(
-                    title = "miuix-icons",
-                    body = "同一项目提供的官方图标集，应用内的设置、返回、添加等图标均取自这里。",
-                    showDivider = false,
                 )
             }
         }
@@ -603,6 +598,5 @@ private fun AboutLink(
                 tint = colorScheme.onSurfaceVariantActions,
             )
         }
-        HorizontalDivider(color = colorScheme.dividerLine)
     }
 }

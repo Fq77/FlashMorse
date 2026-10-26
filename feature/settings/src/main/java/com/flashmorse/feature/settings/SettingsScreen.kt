@@ -9,14 +9,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.flashmorse.core.model.TimingProfile
-import com.flashmorse.core.model.Brightness
+import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
@@ -25,7 +23,6 @@ import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import kotlin.math.roundToInt
 
 /**
  * 设置首页。
@@ -37,7 +34,7 @@ import kotlin.math.roundToInt
 fun SettingsScreen(
     state: SettingsUiState,
     onWpmChange: (Int) -> Unit,
-    onBrightnessChange: (Int) -> Unit,
+    onRetainBrightnessChange: (Boolean) -> Unit,
     onChannelChange: (Int) -> Unit,
     onLoopChange: (Boolean) -> Unit,
     onHapticChange: (Boolean) -> Unit,
@@ -46,12 +43,6 @@ fun SettingsScreen(
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 拖动过程只改本地值，松手才落盘：DataStore 每次 edit 都是一次磁盘写，
-    // 连续拖动会把写放大到几十次。
-    var localBrightness by remember(state.brightnessPercent) {
-        mutableFloatStateOf(state.brightnessPercent.toFloat())
-    }
-
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
@@ -72,28 +63,13 @@ fun SettingsScreen(
                     steps = (TimingProfile.MAX_WPM - TimingProfile.MIN_WPM) - 1,
                     valueText = "${state.wpm} WPM",
                 )
-                SliderPreference(
-                    title = "手电筒亮度",
-                    summary = state.brightnessSummary,
+                SwitchPreference(
+                    title = "保留手电筒亮度",
+                    summary = state.retainBrightnessSummary,
+                    checked = state.retainTorchBrightness,
+                    onCheckedChange = onRetainBrightnessChange,
                     enabled = state.brightnessAvailable,
-                    value = localBrightness,
-                    onValueChange = { localBrightness = it },
-                    onValueChangeFinished = {
-                        onBrightnessChange(localBrightness.roundToInt())
-                    },
-                    valueRange = Brightness.MIN_PERCENT.toFloat()..Brightness.MAX_PERCENT.toFloat(),
-                    steps = 0,
-                    valueText = "${localBrightness.roundToInt()}%",
                 )
-                if (state.brightnessAvailable && localBrightness < Brightness.LOW_THRESHOLD_PERCENT) {
-                    Text(
-                        text = "手电筒低于 ${Brightness.LOW_THRESHOLD_PERCENT}% 时点划边沿会变软，" +
-                            "远距离识别率下降，建议只在近距离使用。",
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp),
-                    )
-                }
                 OverlayDropdownPreference(
                     title = "发送通道",
                     summary = if (state.ledAvailable) {

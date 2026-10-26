@@ -6,6 +6,9 @@ import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.ChevronForward
 import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Edit
+import top.yukonga.miuix.kmp.icon.extended.ExpandLess
+import top.yukonga.miuix.kmp.icon.extended.ExpandMore
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.GridView
 import top.yukonga.miuix.kmp.icon.extended.Info
@@ -67,4 +70,13 @@ object FmIcons {
 
     /** 信息 / 诊断 */
     val Info: ImageVector get() = MiuixIcons.Info
+
+    /** 上移 */
+    val Up: ImageVector get() = MiuixIcons.ExpandLess
+
+    /** 下移 */
+    val Down: ImageVector get() = MiuixIcons.ExpandMore
+
+    /** 编辑 */
+    val Edit: ImageVector get() = MiuixIcons.Edit
 }

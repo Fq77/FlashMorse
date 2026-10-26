@@ -14,6 +14,8 @@ data class SettingsUiState(
     val compensationMillis: Int = 0,
     /** 手电筒亮度百分比（屏幕闪光通道恒定全亮，不参与调光） */
     val brightnessPercent: Int = Brightness.DEFAULT_PERCENT,
+    /** 是否保留手电筒亮度（关闭后每次打开手电筒都回到 100%） */
+    val retainTorchBrightness: Boolean = true,
     val ledAvailable: Boolean = true,
     val supportsStrength: Boolean = false,
     /** 硬件档位上限，用于把百分比换算成"第几档"给用户看 */
@@ -30,12 +32,13 @@ data class SettingsUiState(
     val brightnessAvailable: Boolean
         get() = ledAvailable && supportsStrength
 
-    /** 亮度项的说明文案：只讲手电筒，别让人以为它也会影响屏幕闪光。 */
-    val brightnessSummary: String
+    /** 亮度开关的说明文案：只讲手电筒，别让人以为它也会影响屏幕闪光。 */
+    val retainBrightnessSummary: String
         get() = when {
             !ledAvailable -> "本机没有闪光灯"
             !supportsStrength -> "本机闪光灯不支持档位调节"
-            else -> "硬件 ${Brightness.levelFor(Brightness.percentToFraction(brightnessPercent), maxStrengthLevel)}/$maxStrengthLevel 档"
+            retainTorchBrightness -> "手电筒记住上次调光的亮度"
+            else -> "每次打开手电筒都回到 100%"
         }
 
     val ledReliability: String

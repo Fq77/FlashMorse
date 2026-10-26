@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.flashmorse.core.designsystem.component.MorsePattern
 import com.flashmorse.core.designsystem.icon.FmIcons
 import com.flashmorse.core.model.TransmissionChannel
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
@@ -200,27 +202,18 @@ fun ManualScreen(
                 onClick = onClear,
                 modifier = Modifier.weight(1f),
             )
-            Card(
+            Button(
+                onClick = onSend,
                 modifier = Modifier
                     .weight(1.2f)
-                    .heightIn(min = 52.dp),
-                insideMargin = PaddingValues(0.dp),
-                pressFeedbackType = PressFeedbackType.Sink,
-                showIndication = true,
-                onClick = onSend,
+                    .height(52.dp),
+                colors = ButtonDefaults.buttonColorsPrimary(),
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "发送",
-                        style = MiuixTheme.textStyles.button,
-                        color = colorScheme.primary,
-                    )
-                }
+                Icon(
+                    imageVector = FmIcons.Send,
+                    contentDescription = "发送",
+                    modifier = Modifier.size(22.dp),
+                )
             }
         }
 
@@ -242,24 +235,17 @@ private fun SmallTile(
         showIndication = true,
         onClick = onClick,
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(vertical = 15.dp),
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
+                contentDescription = label,
+                modifier = Modifier.size(22.dp),
                 tint = MiuixTheme.colorScheme.onSurfaceContainer,
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = label,
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceContainer,
             )
         }
     }

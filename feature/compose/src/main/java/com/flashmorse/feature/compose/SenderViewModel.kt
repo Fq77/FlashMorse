@@ -166,15 +166,6 @@ class SenderViewModel(
         _state.update { it.copy(constantLightOn = transmitter.isConstantLightOn()) }
     }
 
-    fun onPauseToggle() {
-        val current = _state.value.playback
-        when (current) {
-            is PlaybackState.Paused -> transmitter.resume()
-            is PlaybackState.Transmitting -> transmitter.pause()
-            else -> Unit
-        }
-    }
-
     fun onStop() = transmitter.stop()
 
     override fun onCleared() {

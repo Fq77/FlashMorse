@@ -52,6 +52,8 @@ import com.flashmorse.core.model.Brightness
 import com.flashmorse.core.model.PlaybackState
 import com.flashmorse.core.model.TransmissionChannel
 import com.flashmorse.core.torch.ThermalLevel
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -82,7 +84,6 @@ fun SenderScreen(
     onToggleLight: () -> Unit,
     onTorchBrightnessPreview: (Int) -> Unit,
     onTorchBrightnessCommit: (Int) -> Unit,
-    onPauseToggle: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -115,7 +116,10 @@ fun SenderScreen(
             .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        MessageInput(state = state, onMessageChange = onMessageChange)
+        // SOS 循环与报文无关：此时不显示输入框，避免"发送的是 SOS 还是输入框内容"的歧义
+        if (!(state.isSending && state.isLooping)) {
+            MessageInput(state = state, onMessageChange = onMessageChange)
+        }
 
         SendCard(
             state = state,
@@ -130,7 +134,6 @@ fun SenderScreen(
             onSosClick = onSosClick,
             onOpenManual = onOpenManual,
             onToggleLight = onToggleLight,
-            onPauseToggle = onPauseToggle,
             onStop = onStop,
         )
 
@@ -179,12 +182,16 @@ private fun MessageInput(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(26.dp),
-                    contentAlignment = Alignment.CenterStart,
+                    contentAlignment = if (state.cells.isEmpty()) {
+                        Alignment.Center
+                    } else {
+                        Alignment.CenterStart
+                    },
                 ) {
                     if (state.cells.isEmpty()) {
                         Text(
-                            text = "输入 A–Z、0–9 或常用标点",
-                            style = MiuixTheme.textStyles.footnote2,
+                            text = "请在上方输入报文，支持A-Z、0-9或常用标点。",
+                            style = MiuixTheme.textStyles.footnote1,
                             color = colorScheme.onSurfaceVariantSummary,
                         )
                     } else {
@@ -441,26 +448,17 @@ private fun ActionRow(
     onSosClick: () -> Unit,
     onOpenManual: () -> Unit,
     onToggleLight: () -> Unit,
-    onPauseToggle: () -> Unit,
     onStop: () -> Unit,
 ) {
     if (state.isSending) {
-        val paused = state.playback is PlaybackState.Paused
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            IconActionTile(
-                icon = if (paused) FmIcons.Play else FmIcons.Pause,
-                contentDescription = if (paused) "继续发送" else "暂停",
-                onClick = onPauseToggle,
-                modifier = Modifier.weight(1f),
-            )
-            IconActionTile(
-                icon = FmIcons.Close,
-                contentDescription = "停止发送",
-                onClick = onStop,
-                modifier = Modifier.weight(1f),
-                highlighted = true,
-            )
-        }
+        // 暂停已移除：对光信号来说"暂停几秒"对接收方等于乱码，只保留明确的停止。
+        IconActionTile(
+            icon = FmIcons.Close,
+            contentDescription = "停止发送",
+            onClick = onStop,
+            modifier = Modifier.fillMaxWidth(),
+            highlighted = true,
+        )
         return
     }
 
@@ -502,22 +500,40 @@ private fun ActionRow(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TextActionTile(
+            PrimaryAction(
                 label = "手动发报",
                 onClick = onOpenManual,
                 modifier = Modifier.weight(1f),
             )
-            TextActionTile(
-                label = if (state.constantLightOn) "关闭手电筒" else "手电筒常亮",
+            PrimaryAction(
+                label = "手电筒常亮",
                 onClick = onToggleLight,
                 modifier = Modifier.weight(1f),
-                highlighted = state.constantLightOn,
             )
         }
     }
 }
 
-/** 发送态的纯图标操作块（暂停 / 停止），不依赖文字标签。 */
+/** 主操作实色按钮：Miuix 主题蓝，两个次级入口共用同一形态。 */
+@Composable
+private fun PrimaryAction(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(58.dp),
+        colors = ButtonDefaults.buttonColorsPrimary(),
+    ) {
+        Text(
+            text = label,
+            style = MiuixTheme.textStyles.body1,
+            color = MiuixTheme.colorScheme.onPrimary,
+        )
+    }
+}
+
 @Composable
 private fun IconActionTile(
     icon: ImageVector,
