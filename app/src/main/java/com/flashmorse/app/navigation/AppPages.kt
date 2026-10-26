@@ -26,12 +26,29 @@ fun HomePage(
     selectedTab: HomeTab,
     onTabSelected: (HomeTab) -> Unit,
     onOpenSettings: () -> Unit,
+    torchOn: Boolean,
+    onToggleTorch: () -> Unit,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
         topBar = {
             SmallTopAppBar(
                 title = title,
+                navigationIcon = {
+                    // 手电筒开关：从页面按钮上移到全局可达的位置；
+                    // 点亮态用主题色强调，一眼可辨当前灯态。
+                    IconButton(onClick = onToggleTorch) {
+                        Icon(
+                            imageVector = FmIcons.Torch,
+                            contentDescription = if (torchOn) "关闭手电筒" else "手电筒常亮",
+                            tint = if (torchOn) {
+                                top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.primary
+                            } else {
+                                top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.onBackground
+                            },
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(

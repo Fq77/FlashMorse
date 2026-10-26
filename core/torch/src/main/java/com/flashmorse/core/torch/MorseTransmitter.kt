@@ -57,6 +57,15 @@ class MorseTransmitter(
     private var constantLedOn: Boolean = false
 
     /**
+     * 手电筒（常亮）是否点亮。
+     *
+     * 顶栏的手电筒开关在任意页面都要实时反映灯态，所以这里用 StateFlow
+     * 而不是让 UI 每次都来查询。
+     */
+    private val _torchLit = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val torchLit: kotlinx.coroutines.flow.StateFlow<Boolean> = _torchLit.asStateFlow()
+
+    /**
      * 用户设定的手电筒亮度（0..1）。
      *
      * 屏幕通道不参与调光，这里只服务 LED；发送过程中不打断当前时间轴，
@@ -169,6 +178,7 @@ class MorseTransmitter(
         _activeChannel.value = controller.channel
         controller.setOn(on)
         constantLedOn = on && controller.channel == TransmissionChannel.Led
+        _torchLit.value = on
     }
 
     fun isConstantLightOn(): Boolean = when (currentController.channel) {
@@ -189,6 +199,7 @@ class MorseTransmitter(
         _activeChannel.value = controller.channel
         controller.setOn(down)
         constantLedOn = false
+        _torchLit.value = false
         return true
     }
 
@@ -253,6 +264,7 @@ class MorseTransmitter(
                 controller.setOn(false)
             }
             if (controller.channel == TransmissionChannel.Led) constantLedOn = false
+            _torchLit.value = false
         }
     }
 
@@ -332,6 +344,7 @@ class MorseTransmitter(
         runCatching { ledController?.setOn(false) }
         runCatching { screenController.setOn(false) }
         constantLedOn = false
+        _torchLit.value = false
     }
 
     private fun ensureWorker() {

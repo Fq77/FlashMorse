@@ -65,6 +65,9 @@ fun FlashMorseApp(container: AppContainer) {
         onDispose { view.keepScreenOn = false }
     }
 
+    // 手电筒灯态：顶栏开关与手电筒页共用这一个真源
+    val torchLit by container.transmitter.torchLit.collectAsStateWithLifecycle()
+
     Box(modifier = Modifier.fillMaxSize()) {
         NavDisplay(
             backStack = backStack,
@@ -79,6 +82,8 @@ fun FlashMorseApp(container: AppContainer) {
                     selectedTab = tab,
                     onTabSelected = { tabName = it.name },
                     onOpenSettings = { backStack.add(Route.Settings) },
+                    torchOn = torchLit,
+                    onToggleTorch = { container.transmitter.setConstantLight(!torchLit) },
                 ) { padding ->
                     Box(
                         modifier = Modifier

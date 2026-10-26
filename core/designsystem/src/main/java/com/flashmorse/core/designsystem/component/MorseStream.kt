@@ -3,13 +3,20 @@ package com.flashmorse.core.designsystem.component
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -118,6 +125,21 @@ fun MorseStream(
     }
 }
 
+/**
+ * 按绘制规则计算一个 pattern 需要的总宽度（与 [MorsePattern] 内部一致：
+ * 点 1、划 3、每个符号后 0.9 倍间距）。
+ */
+fun morsePatternWidth(pattern: String, barHeight: Dp): Dp {
+    var units = 0f
+    pattern.forEach { ch ->
+        when (ch) {
+            '.' -> units += 1.9f
+            '-' -> units += 3.9f
+        }
+    }
+    return barHeight * units
+}
+
 /** 单个字符的点划模式，供对照表、短语行与发送卡复用。 */
 @Composable
 fun MorsePattern(
@@ -125,7 +147,43 @@ fun MorsePattern(
     modifier: Modifier = Modifier,
     height: Dp = 6.dp,
     color: Color = MiuixTheme.colorScheme.onBackgroundVariant,
+    /** 溢出时是否允许横向滚动（false = 超出部分被裁掉）。 */
+    scrollable: Boolean = false,
 ) {
+    if (scrollable) {
+        BoxWithConstraints(modifier) {
+            val needed = morsePatternWidth(pattern, height)
+            if (needed > maxWidth) {
+                // 内容比视口宽：视口保持给定宽度，内容按实际宽度绘制并可拖动查看
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MorsePattern(
+                        pattern = pattern,
+                        modifier = Modifier
+                            .width(needed)
+                            .height(height),
+                        height = height,
+                        color = color,
+                    )
+                }
+            } else {
+                MorsePattern(
+                    pattern = pattern,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .height(height),
+                    height = height,
+                    color = color,
+                )
+            }
+        }
+        return
+    }
+
     Canvas(modifier = modifier) {
         val barPx = height.toPx()
         val dotW = barPx

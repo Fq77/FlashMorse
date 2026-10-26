@@ -459,8 +459,8 @@ private fun ActionRow(
         ) {
             Button(
                 onClick = onStop,
-                modifier = Modifier.size(76.dp),
-                cornerRadius = 38.dp,
+                modifier = Modifier.size(60.dp),
+                cornerRadius = 30.dp,
                 colors = ButtonDefaults.buttonColors(
                     color = MiuixTheme.colorScheme.error,
                     contentColor = MiuixTheme.colorScheme.onError,
@@ -469,7 +469,7 @@ private fun ActionRow(
                 Icon(
                     imageVector = FmIcons.Close,
                     contentDescription = "停止发送",
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(24.dp),
                 )
             }
         }
@@ -507,18 +507,12 @@ private fun ActionRow(
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryAction(
-                label = "手动发报",
-                onClick = onOpenManual,
-                modifier = Modifier.weight(1f),
-            )
-            PrimaryAction(
-                label = "手电筒常亮",
-                onClick = onToggleLight,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        // 手电筒常亮已上移到顶栏左侧图标，这里只留手动发报入口
+        PrimaryAction(
+            label = "手动发报",
+            onClick = onOpenManual,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -542,44 +536,6 @@ private fun PrimaryAction(
     }
 }
 
-/**
- * 次要操作块：纯文字，避免在 miuix 图标集里硬凑语义。
- *
- * 高度固定、内容区 `fillMaxSize` + `Center`：文字在垂直方向由容器居中，
- * 不再靠上下 padding 凑，避免不同字号的基线偏移看起来「偏上/偏下」。
- */
-@Composable
-private fun TextActionTile(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    highlighted: Boolean = false,
-) {
-    val colorScheme = MiuixTheme.colorScheme
-
-    Card(
-        modifier = modifier.height(ACTION_TILE_HEIGHT),
-        insideMargin = PaddingValues(0.dp),
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
-        onClick = onClick,
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 8.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = label,
-                style = MiuixTheme.textStyles.body1,
-                color = if (highlighted) colorScheme.primary else colorScheme.onSurfaceContainer,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-            )
-        }
-    }
-}
 
 /** 次要操作块与 SOS 行共用的高度基准。 */
 private val ACTION_TILE_HEIGHT = 58.dp
@@ -690,12 +646,20 @@ private fun TorchScreen(
             }
         }
 
-        TextActionTile(
-            label = "关灯",
+        Button(
             onClick = onTurnOff,
             modifier = Modifier.fillMaxWidth(),
-            highlighted = true,
-        )
+            colors = ButtonDefaults.buttonColors(
+                color = colorScheme.error,
+                contentColor = colorScheme.onError,
+            ),
+        ) {
+            Text(
+                text = "关闭手电筒",
+                style = MiuixTheme.textStyles.body1,
+                color = colorScheme.onError,
+            )
+        }
 
         Text(
             text = "灯已常亮，可随时离开本页；亮度只作用于手电筒通道",

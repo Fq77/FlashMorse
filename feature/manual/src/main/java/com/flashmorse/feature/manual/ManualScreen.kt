@@ -194,16 +194,16 @@ fun ManualScreen(
             SmallTile(
                 icon = FmIcons.Undo,
                 label = "退格",
-                container = colorScheme.tertiaryContainer,
-                content = colorScheme.onTertiaryContainer,
+                container = colorScheme.secondary,
+                content = colorScheme.onSecondary,
                 onClick = onBackspace,
                 modifier = Modifier.weight(1f),
             )
             SmallTile(
                 icon = FmIcons.Delete,
                 label = "清空",
-                container = colorScheme.errorContainer,
-                content = colorScheme.onErrorContainer,
+                container = colorScheme.error,
+                content = colorScheme.onError,
                 onClick = onClear,
                 modifier = Modifier.weight(1f),
             )

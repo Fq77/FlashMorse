@@ -105,6 +105,12 @@ class SenderViewModel(
                 _state.update { it.copy(thermalLevel = level) }
             }
         }
+
+        viewModelScope.launch {
+            transmitter.torchLit.collect { lit ->
+                _state.update { it.copy(constantLightOn = lit) }
+            }
+        }
     }
 
     fun onMessageChange(text: String) {
@@ -159,11 +165,13 @@ class SenderViewModel(
         viewModelScope.launch { settingsRepository.setBrightness(clamped) }
     }
 
+    /**
+     * 顶栏与手电筒页共用同一开关：灯态的真源是 [MorseTransmitter.torchLit]，
+     * 这里只负责发起切换，状态经 Flow 回流到 UI（发送中拦截在发射器内完成）。
+     */
     fun onToggleConstantLight() {
         if (_state.value.isSending) return
-        val next = !_state.value.constantLightOn
-        transmitter.setConstantLight(next, _state.value.resolvedChannel)
-        _state.update { it.copy(constantLightOn = transmitter.isConstantLightOn()) }
+        transmitter.setConstantLight(!_state.value.constantLightOn, _state.value.resolvedChannel)
     }
 
     fun onStop() = transmitter.stop()

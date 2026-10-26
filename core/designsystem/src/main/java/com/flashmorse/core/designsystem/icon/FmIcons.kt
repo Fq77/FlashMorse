@@ -6,6 +6,7 @@ import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.ChevronForward
 import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Scan
 import top.yukonga.miuix.kmp.icon.extended.Edit
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.GridView
@@ -71,4 +72,10 @@ object FmIcons {
 
     /** 编辑 */
     val Edit: ImageVector get() = MiuixIcons.Edit
+
+    /**
+     * 手电筒：Miuix 图标集没有灯具类图标，用 Scan（光束扫描）承担这一语义，
+     * 点亮态由 tint 强调（primary），形状语义保持单一来源。
+     */
+    val Torch: ImageVector get() = MiuixIcons.Scan
 }

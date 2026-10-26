@@ -1,5 +1,6 @@
 package com.flashmorse.feature.library
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -35,7 +37,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.flashmorse.core.designsystem.component.MorsePattern
@@ -152,13 +153,23 @@ fun LibraryScreen(
                                     }
                                     dragOffsetPx += dragAmount.y
                                     val centerY = dragged.offset + dragged.size / 2 + dragOffsetPx
+                                    // 换位阈值是**目标项的中点**而不是边界：刚碰到目标项就换位
+                                    // 会在中点附近来回抖动（视觉上的"抽搐"）
                                     val target = listState.layoutInfo.visibleItemsInfo.firstOrNull {
                                         it.key is String &&
                                             it.key != item.phrase.id &&
                                             centerY.toInt() >= it.offset &&
                                             centerY.toInt() < it.offset + it.size
                                     }
-                                    if (target != null) {
+                                    val passedMidpoint = target != null && run {
+                                        val targetCenter = target.offset + target.size / 2
+                                        if (target.offset > dragged.offset) {
+                                            centerY >= targetCenter // 向下拖：越过目标中点才换
+                                        } else {
+                                            centerY <= targetCenter // 向上拖：同理
+                                        }
+                                    }
+                                    if (passedMidpoint) {
                                         val from = phrasesState.indexOfFirst { it.phrase.id == item.phrase.id }
                                         val to = phrasesState.indexOfFirst { it.phrase.id == target.key }
                                         if (from >= 0 && to >= 0 && from != to) {
@@ -330,17 +341,28 @@ private fun DeleteConfirmDialog(
         show = true,
         onDismissRequest = onDismiss,
     ) {
-        TextButton(
-            text = confirmLabel,
-            onClick = onConfirm,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        TextButton(
-            text = "取消",
-            onClick = onDismiss,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // 左取消 / 右删除：破坏性操作固定放在最右侧，位置与系统对话框习惯一致
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            TextButton(
+                text = "取消",
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f),
+            )
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    color = MiuixTheme.colorScheme.error,
+                    contentColor = MiuixTheme.colorScheme.onError,
+                ),
+            ) {
+                Text(
+                    text = confirmLabel,
+                    style = MiuixTheme.textStyles.body1,
+                    color = MiuixTheme.colorScheme.onError,
+                )
+            }
+        }
     }
 }
 
@@ -396,13 +418,15 @@ private fun PhraseRow(
                     // 点划预览紧贴标题；宽度按报文长度自适应，SOS 这类短报文完整显示
                     if (item.previewPattern.isNotEmpty()) {
                         Spacer(modifier = Modifier.width(10.dp))
+                        // 超出可视宽度的电码可横向拖动查看（如 NEED HELP）
                         MorsePattern(
                             pattern = item.previewPattern,
                             modifier = Modifier
-                                .width(previewWidth(item.previewPattern))
+                                .widthIn(max = 140.dp)
                                 .height(5.dp),
                             height = 5.dp,
                             color = colorScheme.onSurfaceContainerVariant,
+                            scrollable = true,
                         )
                     }
                 }
@@ -490,23 +514,6 @@ private fun RowIconAction(
 }
 
 /**
- * 预览宽度：按点划单元总量换算（与 [MorsePattern] 的绘制规则一致：
- * 点 1、划 3、符号后间距 0.9、字母间距 0.9），SOS（9 符号）完整显示，
- * 更长的报文封顶 140dp 截断。
- */
-private fun previewWidth(pattern: String): Dp {
-    var units = 0f
-    pattern.forEach { ch ->
-        when (ch) {
-            '.' -> units += 1.9f
-            '-' -> units += 3.9f
-            ' ' -> units += 0.9f
-        }
-    }
-    return (units * 5).dp.coerceIn(40.dp, 140.dp)
-}
-
-/**
  * 发送中的状态卡片：覆盖在列表正中央，纵向排布——
  * 上方是「正在发送」与报文文本，下方是停止按钮。
  * 投影 + 比列表高一档的表面色，保证与下层内容有清晰层次。
@@ -522,7 +529,9 @@ private fun PlayingOverlay(
 
     Card(
         modifier = modifier
-            .shadow(elevation = 12.dp, shape = shape)
+            .shadow(elevation = 16.dp, shape = shape)
+            // 描边把悬浮卡与列表卡的边界拉开：阴影负责"浮起"，描边负责"分层"
+            .border(width = 1.dp, color = colorScheme.dividerLine, shape = shape)
             .width(260.dp),
         cornerRadius = 24.dp,
         colors = CardDefaults.defaultColors(color = colorScheme.surfaceContainerHigh),
@@ -549,8 +558,8 @@ private fun PlayingOverlay(
             Spacer(modifier = Modifier.height(18.dp))
             Button(
                 onClick = onStop,
-                modifier = Modifier.size(64.dp),
-                cornerRadius = 32.dp,
+                modifier = Modifier.size(52.dp),
+                cornerRadius = 26.dp,
                 colors = ButtonDefaults.buttonColors(
                     color = colorScheme.error,
                     contentColor = colorScheme.onError,
@@ -559,7 +568,7 @@ private fun PlayingOverlay(
                 Icon(
                     imageVector = FmIcons.Close,
                     contentDescription = "停止发送",
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
         }
