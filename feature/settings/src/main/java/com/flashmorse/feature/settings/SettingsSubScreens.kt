@@ -392,7 +392,7 @@ private const val AUTHOR_REPO = "https://github.com/Fq77"
  * 关于页。
  *
  * 结构按「先品牌、后信息」组织：顶部是应用图标与名称，下面用列表逐条给出应用是什么、
- * 怎么用、隐私与免责说明，最后是致谢（开源项目与其仓库地址）。
+ * 怎么用、隐私与免责说明，最后分「作者」「致谢」两个独立区块。
  */
 @Composable
 fun AboutRoute(
@@ -478,17 +478,24 @@ fun AboutScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        SmallTitle(text = "作者与致谢")
+        SmallTitle(text = "作者")
         Card {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 AboutLink(
                     avatarRes = com.flashmorse.core.designsystem.R.drawable.avatar_fq77,
-                    title = "Fq77",
+                    title = "Eric Feng",
                     body = "闪光摩斯的作者",
                     url = AUTHOR_REPO,
                     onClick = { uriHandler.openUri(AUTHOR_REPO) },
                 )
-                HorizontalDivider(color = colorScheme.dividerLine)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        SmallTitle(text = "致谢")
+        Card {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 AboutLink(
                     avatarRes = com.flashmorse.core.designsystem.R.drawable.avatar_miux_author,
                     title = "YuKongA · Miuix",

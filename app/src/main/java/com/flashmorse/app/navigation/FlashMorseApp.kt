@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import kotlin.math.roundToInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flashmorse.app.BuildConfig
 import com.flashmorse.app.di.AppContainer
@@ -38,6 +39,7 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.transition.NavTransition
 import top.yukonga.miuix.kmp.nav.transition.NavTransitions
+import top.yukonga.miuix.kmp.nav.transition.navGraphicsTransition
 
 /**
  * 应用装配层：只负责路由、转场与全局覆盖层。
@@ -60,7 +62,10 @@ fun FlashMorseApp(container: AppContainer) {
 
     val playback by container.transmitter.state.collectAsStateWithLifecycle()
     val activeChannel by container.transmitter.activeChannel.collectAsStateWithLifecycle()
-    val screenLit by container.screenFlashController.lit.collectAsStateWithLifecycle()
+    // 注意：这里故意不读取屏幕闪光的亮灭值本身（不用 by 委托），
+    // 只把 State 对象下传给全屏覆盖层、在绘制阶段读取——
+    // 灯的每次通断如果走到组合阶段，整棵页面树都会被重组，掉帧即乱闪。
+    val screenLitState = container.screenFlashController.lit.collectAsStateWithLifecycle()
 
     // 发送期间禁止息屏：这是时序可靠的物理前提
     val view = LocalView.current
@@ -156,7 +161,10 @@ fun FlashMorseApp(container: AppContainer) {
                 }
             }
 
-            entry<Route.Survival> {
+            entry<Route.Survival>(
+                // 求生指南的入口是顶栏左侧的 Info 图标，页面也从左侧滑入，与入口方向一致
+                transition = EntryFromLeft,
+            ) {
                 DetailPage(title = "求生与求救指南", onBack = { backStack.removeLastOrNull() }) { padding ->
                     PageBody(padding) {
                         com.flashmorse.feature.learn.SurvivalScreen(modifier = Modifier)
@@ -176,7 +184,7 @@ fun FlashMorseApp(container: AppContainer) {
         // 屏幕闪光通道的全屏光斑必须盖在所有页面之上，且自身可点按停止
         ScreenFlashOverlay(
             active = playback.isActive && activeChannel == TransmissionChannel.Screen,
-            lit = screenLit,
+            litState = screenLitState,
             onStop = { container.transmitter.stop() },
         )
     }
@@ -207,6 +215,25 @@ private fun PageBody(
  * 几何（整页滑入 + 下层 1/4 视差 + 10% 透明度衰减）也一并交回预置。
  */
 private val AppTransition: NavTransition = NavTransitions.MiuixDefault
+
+/**
+ * 顶栏左侧 Info 入口（求生指南）专用转场：镜射 [NavTransitions.MiuixDefault] 的水平方向——
+ * 进入页从**左侧**全宽滑入，被覆盖层向尾缘（右）做 1/4 宽视差并带 10% 透明衰减。
+ * 与库内预置一样只映射 graphicsLayer 属性并在绘制阶段读取深度，零重组开销。
+ */
+private val EntryFromLeft: NavTransition = navGraphicsTransition { scope ->
+    val width = scope.layoutSize.width.toFloat()
+    val d = scope.relativeDepth
+    if (d <= 0f) {
+        // 进入/离开顶层：从左缘全宽滑入（d: -1 -> 0，translationX: -width -> 0）
+        translationX = (d.coerceIn(-1f, 0f) * width).roundToInt().toFloat()
+    } else {
+        // 被覆盖：向尾缘 1/4 宽视差 + 轻微透明衰减
+        val cover = d.coerceIn(0f, 1f)
+        translationX = cover * width * 0.25f
+        alpha = 1f - 0.1f * cover
+    }
+}
 
 @Composable
 private fun HomeContent(
@@ -239,6 +266,10 @@ private fun HomeContent(
 
     HorizontalPager(
         state = pagerState,
+        // 三页常驻组合：默认设置下相邻页要等手势进行到一半才被现场组合，
+        // 整页 Scaffold + Canvas 的组合成本落在拖动帧上，表现为掉帧卡顿。
+        // 页面总数只有 3，常驻的内存代价可以忽略；切页从此只剩纯位移动画。
+        beyondViewportPageCount = HomeTab.entries.size - 1,
         modifier = Modifier.fillMaxSize(),
     ) { page ->
         when (HomeTab.entries.getOrNull(page)) {

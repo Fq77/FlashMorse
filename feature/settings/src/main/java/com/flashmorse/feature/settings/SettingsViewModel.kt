@@ -52,6 +52,7 @@ class SettingsViewModel(
                         brightnessPercent = settings.brightnessPercent,
                         retainTorchBrightness = settings.retainTorchBrightness,
                         soundEnabled = settings.soundEnabled,
+                        loaded = true,
                     )
                 }
             }

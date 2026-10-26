@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,13 +35,16 @@ private val StopHintColor = Color(0xFF7A7A7A)
  *    否则熄灭间隙会露出界面，既破坏对比度，也让观感变得躁动。
  * 3. 屏幕通道**不参与亮度调节**：它的价值在于"最亮、最容易被看见"，
  *    调暗只会削弱唯一的优势；亮度设定只作用于手电筒。
+ * 4. 亮灭状态**只在绘制阶段读取**（见 drawBehind 的延迟读取）：灯的每次通断
+ *    只重绘这一层，不触发任何重组——此前把亮灭作为组合期状态收集在装配层，
+ *    每次通断都重组整棵页面树，主线程一掉帧灯的边沿就错乱（表现为乱闪）。
  *
  * 该层同时是「停止」入口：全屏输出时用户看不到底部导航，必须就地提供明确的停止手势。
  */
 @Composable
 fun ScreenFlashOverlay(
     active: Boolean,
-    lit: Boolean,
+    litState: State<Boolean>,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -50,12 +55,16 @@ fun ScreenFlashOverlay(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(if (lit) Color.White else Color.Black)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onStop,
-            ),
+            )
+            .drawBehind {
+                // litState.value 是快照状态：在绘制阶段读取意味着变化只触发重绘，
+                // 组合与布局完全不参与——时序线程的通断事件逐帧精确呈现
+                drawRect(if (litState.value) Color.White else Color.Black)
+            },
     ) {
         Column(
             modifier = Modifier

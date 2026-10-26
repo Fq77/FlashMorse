@@ -1,6 +1,7 @@
 package com.flashmorse.feature.settings
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,8 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -63,15 +63,6 @@ fun SettingsScreen(
                     valueRange = TimingProfile.MIN_WPM.toFloat()..TimingProfile.MAX_WPM.toFloat(),
                     steps = (TimingProfile.MAX_WPM - TimingProfile.MIN_WPM) - 1,
                     valueText = "${state.wpm} WPM",
-                )
-                // 调速建议紧贴速度项：它回答的是「调多少、去哪调」，
-                // 放在页面别处会与所在设置项脱节
-                Text(
-                    text = "建议先用默认值发一段熟悉的报文；若整体偏快或偏慢，" +
-                        "再到「时序补偿」微调（每次 5 ms）。",
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 10.dp),
                 )
                 SwitchPreference(
                     title = "发报声音",
@@ -165,15 +156,27 @@ fun SettingsScreen(
         }
 
         item {
-            Text(
-                text = state.ledReliability,
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                textAlign = TextAlign.Center,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp, vertical = 14.dp),
-            )
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = state.ledReliability,
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "调速后建议先发一段熟悉的报文核对节奏；若整体偏快或偏慢，" +
+                        "再到「时序补偿」微调（每次 5 ms）。",
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }

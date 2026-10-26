@@ -31,6 +31,10 @@ fun SettingsRoute(
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    // 持久化设置尚未首次读出时不渲染：否则速度滑杆会先以默认值出现，
+    // 再动画滑到保存值——表现为「从最左侧 0 迅速滑到先前的值」
+    if (!state.loaded) return
+
     SettingsScreen(
         state = state,
         onWpmChange = viewModel::onWpmChange,

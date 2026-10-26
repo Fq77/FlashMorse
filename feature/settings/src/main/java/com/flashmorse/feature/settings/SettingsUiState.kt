@@ -8,6 +8,8 @@ import com.flashmorse.core.torch.ThermalLevel
 data class SettingsUiState(
     val wpm: Int = 10,
     val unitMillis: Int = 120,
+    /** 持久化设置是否已首次加载：未加载前滑杆会以默认值渲染、再动画到保存值。 */
+    val loaded: Boolean = false,
     val channel: ChannelPreference = ChannelPreference.Auto,
     val loop: Boolean = false,
     val haptic: Boolean = true,
