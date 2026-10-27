@@ -25,8 +25,6 @@ data class SenderUiState(
     val loopByDefault: Boolean = false,
     val constantLightOn: Boolean = false,
     val thermalLevel: ThermalLevel = ThermalLevel.Unknown,
-    val sosDisclaimerAccepted: Boolean = false,
-    val showSosDisclaimer: Boolean = false,
     /** 归一化后无法编码的字符数（被替换为 `?`），用于就地提示而不是静默吞掉。 */
     val unsupportedCount: Int = 0,
     /** 手电筒亮度百分比：常亮模式下整页调光直接读它 */

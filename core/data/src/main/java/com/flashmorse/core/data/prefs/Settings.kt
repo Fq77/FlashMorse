@@ -16,8 +16,6 @@ data class Settings(
     val loopByDefault: Boolean = false,
     /** 实机延迟补偿 L_cmd（毫秒），由校准流程写入 */
     val compensationMillis: Int = 0,
-    /** 是否已确认过 SOS 免责提示（架构文档 §4.6） */
-    val sosDisclaimerAccepted: Boolean = false,
     /** 上次编辑的报文，用于冷启动恢复；默认为空，避免一打开就处于可发送求救信号的状态 */
     val lastMessage: String = "",
     /** 手电筒亮度（百分比），仅 LED 通道使用；见 [Brightness] */

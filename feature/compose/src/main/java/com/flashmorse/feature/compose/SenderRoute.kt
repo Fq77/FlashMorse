@@ -58,8 +58,6 @@ fun SenderRoute(
         onMessageChange = viewModel::onMessageChange,
         onPrimaryAction = viewModel::onPrimaryAction,
         onSosClick = viewModel::onSosClick,
-        onSosConfirm = viewModel::onSosConfirm,
-        onSosDismiss = viewModel::onSosDismiss,
         onOpenManual = onOpenManual,
         onToggleLight = viewModel::onToggleConstantLight,
         onTorchBrightnessPreview = viewModel::onTorchBrightnessPreview,

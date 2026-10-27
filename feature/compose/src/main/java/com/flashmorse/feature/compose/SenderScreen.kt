@@ -25,8 +25,6 @@ import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -43,8 +41,6 @@ fun SenderScreen(
     onMessageChange: (String) -> Unit,
     onPrimaryAction: () -> Unit,
     onSosClick: () -> Unit,
-    onSosConfirm: () -> Unit,
-    onSosDismiss: () -> Unit,
     onOpenManual: () -> Unit,
     onToggleLight: () -> Unit,
     onTorchBrightnessPreview: (Int) -> Unit,
@@ -105,12 +101,6 @@ fun SenderScreen(
 
         Spacer(modifier = Modifier.height(4.dp))
     }
-
-    SenderSosDisclaimerDialog(
-        state = state,
-        onConfirm = onSosConfirm,
-        onDismiss = onSosDismiss,
-    )
 }
 
 // -------------------------------------------------------------------- 一键操作
@@ -229,32 +219,3 @@ private fun PrimaryAction(
 
 /** 一行操作按钮的统一高度基准（SOS 与两个次级入口共用）。 */
 private val ACTION_TILE_HEIGHT = 58.dp
-
-// -------------------------------------------------------------------- 免责声明
-
-@Composable
-private fun SenderSosDisclaimerDialog(
-    state: SenderUiState,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    OverlayDialog(
-        title = "确认发送求救信号",
-        summary = "请确认当前处于真实的紧急情况。滥用求救信号可能承担法律责任。\n\n" +
-            "SOS 是辅助手段，不能替代专业救援设备与 112 / 110 报警。",
-        show = state.showSosDisclaimer,
-        onDismissRequest = onDismiss,
-    ) {
-        TextButton(
-            text = "我确认，开始发送",
-            onClick = onConfirm,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        TextButton(
-            text = "取消",
-            onClick = onDismiss,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-}

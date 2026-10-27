@@ -62,7 +62,6 @@ class SenderViewModel(
                         channelPreference = settings.channel,
                         hapticFeedback = settings.hapticFeedback,
                         loopByDefault = settings.loopByDefault,
-                        sosDisclaimerAccepted = settings.sosDisclaimerAccepted,
                         brightnessPercent = settings.brightnessPercent,
                     )
                 }
@@ -128,26 +127,13 @@ class SenderViewModel(
         }
     }
 
+    /** SOS 按钮：发送中再点一下=停止，否则直接开始循环发报。 */
     fun onSosClick() {
         if (_state.value.isSending) {
             transmitter.stop()
             return
         }
-        if (!_state.value.sosDisclaimerAccepted) {
-            _state.update { it.copy(showSosDisclaimer = true) }
-            return
-        }
         playSos()
-    }
-
-    fun onSosConfirm() {
-        _state.update { it.copy(showSosDisclaimer = false, sosDisclaimerAccepted = true) }
-        viewModelScope.launch { settingsRepository.acceptSosDisclaimer() }
-        playSos()
-    }
-
-    fun onSosDismiss() {
-        _state.update { it.copy(showSosDisclaimer = false) }
     }
 
     /**
@@ -158,10 +144,6 @@ class SenderViewModel(
      */
     fun requestSos() {
         if (_state.value.isSending) transmitter.stop()
-        if (!_state.value.sosDisclaimerAccepted) {
-            _state.update { it.copy(showSosDisclaimer = true) }
-            return
-        }
         playSos()
     }
 

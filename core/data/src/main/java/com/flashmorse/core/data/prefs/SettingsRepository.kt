@@ -43,7 +43,6 @@ class SettingsRepository(context: Context) {
             prefs[Keys.Haptic] = next.hapticFeedback
             prefs[Keys.Loop] = next.loopByDefault
             prefs[Keys.Compensation] = next.compensationMillis
-            prefs[Keys.SosAccepted] = next.sosDisclaimerAccepted
             prefs[Keys.LastMessage] = next.lastMessage
             prefs[Keys.Brightness] = Brightness.clampPercent(next.brightnessPercent)
             prefs[Keys.RetainBrightness] = next.retainTorchBrightness
@@ -60,8 +59,6 @@ class SettingsRepository(context: Context) {
     suspend fun setLoop(enabled: Boolean) = update { it.copy(loopByDefault = enabled) }
 
     suspend fun setCompensation(millis: Int) = update { it.copy(compensationMillis = millis.coerceIn(-60, 60)) }
-
-    suspend fun acceptSosDisclaimer() = update { it.copy(sosDisclaimerAccepted = true) }
 
     suspend fun setLastMessage(text: String) = update { it.copy(lastMessage = text) }
 
@@ -85,7 +82,6 @@ class SettingsRepository(context: Context) {
         hapticFeedback = this[Keys.Haptic] ?: true,
         loopByDefault = this[Keys.Loop] ?: false,
         compensationMillis = this[Keys.Compensation] ?: 0,
-        sosDisclaimerAccepted = this[Keys.SosAccepted] ?: false,
         lastMessage = this[Keys.LastMessage] ?: "",
         brightnessPercent = Brightness.clampPercent(
             this[Keys.Brightness] ?: Brightness.DEFAULT_PERCENT,
@@ -100,7 +96,6 @@ class SettingsRepository(context: Context) {
         val Haptic = booleanPreferencesKey("haptic")
         val Loop = booleanPreferencesKey("loop")
         val Compensation = intPreferencesKey("compensation_ms")
-        val SosAccepted = booleanPreferencesKey("sos_accepted")
         val LastMessage = stringPreferencesKey("last_message")
         val Brightness = intPreferencesKey("brightness_percent")
         val RetainBrightness = booleanPreferencesKey("retain_torch_brightness")
