@@ -151,6 +151,21 @@ class SenderViewModel(
     }
 
     /**
+     * 外部入口（桌面快捷方式）：无论当前是否在发送，都开始一轮 SOS。
+     *
+     * 与 [onSosClick] 的区别在于语义：页内按钮是开关（发送中再点一下=停止），
+     * 而快捷方式表达的意图是明确的「现在就要发求救信号」，不能被上一次发送吞掉。
+     */
+    fun requestSos() {
+        if (_state.value.isSending) transmitter.stop()
+        if (!_state.value.sosDisclaimerAccepted) {
+            _state.update { it.copy(showSosDisclaimer = true) }
+            return
+        }
+        playSos()
+    }
+
+    /**
      * 手电筒模式拖动调光的"过程值"：只驱动 LED 与界面，不落盘。
      * DataStore 每次 edit 都是一次磁盘写，拖动一秒能触发几十次，不能在这里持久化。
      */
@@ -203,7 +218,7 @@ class SenderViewModel(
 
     private fun playSos() {
         val current = _state.value
-        // 用三个字母 S O S 编码（27t = 3240 ms @ 10 WPM），与规划文档 §11.1 的校验值一致；
+        // 用三个字母 S O S 编码（27t = 3240 ms @ 10 WPM），与架构文档 §11.1 的校验值一致；
         // prosign 的连续形态会省掉字符间隔而变成 23t，人工识读时反而更易误判。
         val script = ScriptCompiler.compile(
             encoder.encode("SOS"),

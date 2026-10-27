@@ -15,7 +15,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold
  * 发报页预览。
  *
  * 这条预览能成立，正是因为 `SenderScreen` 只接收 State + 回调，
- * 不直接引用 ViewModel（规划文档 §5.6）。
+ * 不直接引用 ViewModel（架构文档 §5.6）。
  */
 @Preview(name = "发报 · 空闲", showBackground = true)
 @Composable

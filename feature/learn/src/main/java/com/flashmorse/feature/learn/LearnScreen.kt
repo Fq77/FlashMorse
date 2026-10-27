@@ -20,10 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.flashmorse.core.designsystem.component.MorsePattern
+import com.flashmorse.core.designsystem.icon.FmIcons
 import com.flashmorse.core.model.MorseLetter
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -42,10 +44,9 @@ fun LearnScreen(
     onTabSelected: (Int) -> Unit,
     onSelect: (MorseLetter) -> Unit,
     onPreview: (MorseLetter) -> Unit,
+    onOpenPractice: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colorScheme = MiuixTheme.colorScheme
-
     Column(modifier = modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(6.dp))
         TabRow(
@@ -53,6 +54,11 @@ fun LearnScreen(
             selectedTabIndex = state.tab.ordinal,
             onTabSelected = onTabSelected,
             modifier = Modifier.padding(horizontal = 12.dp),
+        )
+
+        PracticeEntryCard(
+            onClick = onOpenPractice,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
         )
 
         LazyVerticalGrid(
@@ -81,6 +87,48 @@ fun LearnScreen(
         }
 
         Spacer(modifier = Modifier.height(10.dp))
+    }
+}
+
+@Composable
+private fun PracticeEntryCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MiuixTheme.colorScheme
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "识读练习",
+                    style = MiuixTheme.textStyles.subtitle,
+                    color = colorScheme.onSurfaceContainer,
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "看灯光读出字符 · 10 题一轮",
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = colorScheme.onSurfaceVariantSummary,
+                )
+            }
+            Icon(
+                imageVector = FmIcons.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = colorScheme.onSurfaceVariantActions,
+            )
+        }
     }
 }
 

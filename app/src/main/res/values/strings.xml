@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">闪光摩斯</string>
+    <string name="shortcut_sos_short">发 SOS</string>
+    <string name="shortcut_sos_long">循环发送 SOS 求救信号</string>
 </resources>

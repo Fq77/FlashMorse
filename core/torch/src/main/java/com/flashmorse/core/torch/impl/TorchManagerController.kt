@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 /**
  * 主力方案：`CameraManager.setTorchMode`（API 23+，**无需 CAMERA 权限**）。
  *
- * 这是产品的信任基石——装完即用、不弹权限窗（规划文档 §4.1 / §6.1）。
+ * 这是产品的信任基石——装完即用、不弹权限窗（架构文档 §4.1 / §6.1）。
  * 它同时监听 [CameraManager.TorchCallback]，识别「被其他应用抢占」的情况。
  */
 class TorchManagerController(
@@ -48,7 +48,7 @@ class TorchManagerController(
 
     private val _externalTakeover = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-    /** 手电筒被其他应用抢占时发射（规划文档 §4.2 中断检测）。 */
+    /** 手电筒被其他应用抢占时发射（架构文档 §4.2 中断检测）。 */
     val externalTakeover: SharedFlow<Unit> = _externalTakeover.asSharedFlow()
 
     private val torchCallback = object : CameraManager.TorchCallback() {
@@ -180,7 +180,7 @@ class TorchManagerController(
     companion object {
         private const val TAG = "TorchManager"
 
-        /** 遍历 cameraIdList，选首个「后置 + 有闪光灯」的 ID，绝不硬编码 "0"（规划文档 §4.3）。 */
+        /** 遍历 cameraIdList，选首个「后置 + 有闪光灯」的 ID，绝不硬编码 "0"（架构文档 §4.3）。 */
         fun detect(context: Context): TorchCapabilities {
             val manager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
                 ?: return TorchCapabilities()

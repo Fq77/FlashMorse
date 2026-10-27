@@ -48,21 +48,29 @@ class ManualViewModel(
     val messages: Flow<String> = _messages.receiveAsFlow()
 
     private var pressStartNanos = 0L
+    private var compensation = 0
     private var gapJob: Job? = null
     private var tickJob: Job? = null
 
     init {
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
+                compensation = settings.compensationMillis
                 _state.update {
                     it.copy(
                         wpm = settings.wpm,
                         unitMillis = settings.timingProfile.unitMillis,
                         hapticFeedback = settings.hapticFeedback,
-                        channel = if (transmitter.ledAvailable) {
-                            TransmissionChannel.Led
-                        } else {
-                            TransmissionChannel.Screen
+                        // 手动按键的时长由手指决定，与 WPM 无关：LED 的固定点亮延迟只造成整体相位偏移，
+                        // 不会像自动发报那样破坏点划比例，因此 Auto 也应留在 LED（如果可用）。
+                        channel = when (settings.channel) {
+                            ChannelPreference.Screen -> TransmissionChannel.Screen
+                            ChannelPreference.Led, ChannelPreference.Auto ->
+                                if (transmitter.ledAvailable) {
+                                    TransmissionChannel.Led
+                                } else {
+                                    TransmissionChannel.Screen
+                                }
                         },
                     )
                 }
@@ -132,9 +140,9 @@ class ManualViewModel(
             _messages.trySend("还没有可发送的内容")
             return
         }
-        val timing = TimingProfile.forWpm(current.wpm)
+        val timing = TimingProfile.forWpm(current.wpm, compensation)
         val script = ScriptCompiler.compile(encoder.encode(text), timing)
-        val channel = transmitter.resolveChannel(ChannelPreference.Auto, timing)
+        val channel = transmitter.resolveChannel(timing)
         transmitter.play(script, loop = false, channel = channel)
     }
 

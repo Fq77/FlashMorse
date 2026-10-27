@@ -14,19 +14,26 @@ android {
         applicationId = "com.flashmorse.app"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
+        debug {
+            // 与 release 使用不同的 applicationId：两个包可以同时存在，
+            // 正式签名版与调试版互不覆盖，装调试卷时不必卸载正式版，也就不会丢数据。
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             optimization {
                 enable = true
             }
-            // 个人项目直接用 debug 签名出 release 包：与本机调试包同签名，
-            // adb install -r 可原地升级且保留设置/短语/历史数据。
+            // 默认沿用 debug 签名，方便本机直接安装调试。
+            // 如需正式签名，请在本机配置 keystore.properties 并在此处读取，
+            // 不要把密钥与密码提交进版本库。
             signingConfig = signingConfigs.getByName("debug")
         }
     }

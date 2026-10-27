@@ -45,7 +45,6 @@ class SettingsRepository(context: Context) {
             prefs[Keys.Compensation] = next.compensationMillis
             prefs[Keys.SosAccepted] = next.sosDisclaimerAccepted
             prefs[Keys.LastMessage] = next.lastMessage
-            prefs[Keys.GlareHint] = next.glareHintShown
             prefs[Keys.Brightness] = Brightness.clampPercent(next.brightnessPercent)
             prefs[Keys.RetainBrightness] = next.retainTorchBrightness
             prefs[Keys.SoundEnabled] = next.soundEnabled
@@ -65,8 +64,6 @@ class SettingsRepository(context: Context) {
     suspend fun acceptSosDisclaimer() = update { it.copy(sosDisclaimerAccepted = true) }
 
     suspend fun setLastMessage(text: String) = update { it.copy(lastMessage = text) }
-
-    suspend fun markGlareHintShown() = update { it.copy(glareHintShown = true) }
 
     suspend fun setRetainBrightness(retain: Boolean) = update {
         it.copy(retainTorchBrightness = retain)
@@ -89,8 +86,7 @@ class SettingsRepository(context: Context) {
         loopByDefault = this[Keys.Loop] ?: false,
         compensationMillis = this[Keys.Compensation] ?: 0,
         sosDisclaimerAccepted = this[Keys.SosAccepted] ?: false,
-        lastMessage = this[Keys.LastMessage] ?: "SOS",
-        glareHintShown = this[Keys.GlareHint] ?: false,
+        lastMessage = this[Keys.LastMessage] ?: "",
         brightnessPercent = Brightness.clampPercent(
             this[Keys.Brightness] ?: Brightness.DEFAULT_PERCENT,
         ),
@@ -106,7 +102,6 @@ class SettingsRepository(context: Context) {
         val Compensation = intPreferencesKey("compensation_ms")
         val SosAccepted = booleanPreferencesKey("sos_accepted")
         val LastMessage = stringPreferencesKey("last_message")
-        val GlareHint = booleanPreferencesKey("glare_hint_shown")
         val Brightness = intPreferencesKey("brightness_percent")
         val RetainBrightness = booleanPreferencesKey("retain_torch_brightness")
         val SoundEnabled = booleanPreferencesKey("sound_enabled")

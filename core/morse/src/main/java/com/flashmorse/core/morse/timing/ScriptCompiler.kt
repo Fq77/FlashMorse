@@ -10,7 +10,7 @@ import com.flashmorse.core.model.SendScript
 import com.flashmorse.core.model.TimingProfile
 
 /**
- * 把 [MorseCode] + [TimingProfile] 编译为绝对时间轴 [SendScript]（规划文档 §6.2）。
+ * 把 [MorseCode] + [TimingProfile] 编译为绝对时间轴 [SendScript]（架构文档 §6.2）。
  *
  * 关键点：所有事件的时间都是「相对锚点的绝对偏移」，而不是逐元素累加的延迟。
  * 任一事件的抖动不会向后传递，因此累积误差不随时间增长（验收 T-02）。

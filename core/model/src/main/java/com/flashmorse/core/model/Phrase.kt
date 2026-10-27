@@ -4,7 +4,7 @@ package com.flashmorse.core.model
  * 短语库条目。
  *
  * [label] 是列表展示文案，[payload] 是实际发送的报文——
- * 二者分离使得中文标签可以驱动英文/数字报文（v1.0 不做中文电报码，见规划文档 §3.2）。
+ * 二者分离使得中文标签可以驱动英文/数字报文（v1.0 不做中文电报码，见架构文档 §3.2）。
  */
 data class Phrase(
     val id: String,

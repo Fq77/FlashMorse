@@ -12,13 +12,24 @@ import com.flashmorse.core.model.TransmissionChannel
 import com.flashmorse.core.morse.timing.HighResolutionClock
 import com.flashmorse.core.torch.impl.ScreenFlashController
 import com.flashmorse.core.torch.impl.TorchManagerController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.LockSupport
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
- * 绝对时间轴调度器（规划文档 §5.4 / §6.2）。
+ * 绝对时间轴调度器（架构文档 §5.4 / §6.2）。
  *
  * 与「逐条 delay() 累积」的反面方案相比，本实现：
  * 1. 所有事件时刻都是相对锚点的**绝对偏移**，单次抖动不向后传递；
@@ -31,8 +42,25 @@ class MorseTransmitter(
     private val ledController: TorchController?,
     private val screenController: ScreenFlashController,
 
+    /**
+     * 热保护数据源。可为 null（预览与测试），此时不启用热中止。
+     *
+     * 监测刻意**不跑在时序线程上**：`currentThermalStatus` 是一次 binder 调用，
+     * 放在 `URGENT_AUDIO` 的事件循环里会直接变成点划边沿抖动。这里用独立协程喂数据，
+     * 超阈值时只做一件事——把 runToken 推进去，让时序线程在下一个检查点自行退出。
+     */
+    private val thermalGuard: ThermalGuard? = null,
+
     private val clock: HighResolutionClock = AndroidHighResolutionClock,
 ) {
+
+    /**
+     * 监测协程作用域：只承载「热轮询」与「抢占订阅」两条旁路，
+     * 与负责精确计时的 HandlerThread 完全隔离。
+     */
+    private val monitorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private var thermalJob: Job? = null
 
     /**
      * 发报侧音：构造即创建音轨（绝不在时序线程懒加载），
@@ -52,7 +80,15 @@ class MorseTransmitter(
     private var workerThread: HandlerThread? = null
     private var workerHandler: Handler? = null
 
-    private val pauseLock = Object()
+    /**
+     * 暂停闸门。
+     *
+     * 用 [ReentrantLock] + [Condition] 而不是 `Object.wait/notifyAll`：
+     * 后者在 Kotlin 里需要桥接 `java.lang.Object`，是平台类型映射的遗留写法；
+     * 前者语义等价、无编译器警告，且 await 自带超时参数。
+     */
+    private val pauseLock = ReentrantLock()
+    private val pauseSignal = pauseLock.newCondition()
 
     @Volatile
     private var runToken: Int = 0
@@ -99,10 +135,29 @@ class MorseTransmitter(
         (ledController as? TorchManagerController)?.capabilities
 
     /**
+     * 用户当前选择的通道偏好。
+     *
+     * 由装配层从设置流同步进来，而不是让每个功能页各自读一次设置：
+     * 发报页、短语库、对照表、手动发报、校准试闪都有"发送"入口，
+     * 任何一处忘了接偏好，都会表现为「设置里选了手电筒，某个页面却偷偷用屏幕」。
+     * 通道决策只保留这一处，新增入口天然正确。
+     */
+    @Volatile
+    private var channelPreference: ChannelPreference = ChannelPreference.Auto
+
+    fun setChannelPreference(preference: ChannelPreference) {
+        channelPreference = preference
+    }
+
+    /** 按当前用户偏好解析通道（业务入口的唯一正确调用方式）。 */
+    fun resolveChannel(timing: TimingProfile): TransmissionChannel =
+        resolveChannel(channelPreference, timing)
+
+    /**
      * 依据用户偏好与当前速度解析实际通道。
      *
      * 自动模式下，单位时长 < 80 ms（> 15 WPM）时切屏幕通道——LED 的 HAL 延迟
-     * 在该速度下不可靠（规划文档 §6.1 重要限制）。
+     * 在该速度下不可靠（架构文档 §6.1 重要限制）。
      */
     fun resolveChannel(preference: ChannelPreference, timing: TimingProfile): TransmissionChannel {
         val ledUsable = ledAvailable
@@ -134,6 +189,7 @@ class MorseTransmitter(
         val token = ++runToken
         _state.value = PlaybackState.Preparing(script)
         ensureWorker()
+        startThermalMonitor(token)
         workerHandler?.post { runScript(script, loop, token, controller) }
     }
 
@@ -145,7 +201,7 @@ class MorseTransmitter(
     fun resume() {
         if (!pauseRequested) return
         pauseRequested = false
-        synchronized(pauseLock) { pauseLock.notifyAll() }
+        pauseLock.withLock { pauseSignal.signalAll() }
     }
 
     fun stop(
@@ -155,7 +211,8 @@ class MorseTransmitter(
         val wasActive = _state.value.let { it is PlaybackState.Transmitting || it is PlaybackState.Paused || it is PlaybackState.Preparing }
         runToken++
         pauseRequested = false
-        synchronized(pauseLock) { pauseLock.notifyAll() }
+        pauseLock.withLock { pauseSignal.signalAll() }
+        stopThermalMonitor()
         safetyOff()
         if (silent) return
         if (!wasActive && reason == AbortReason.UserStopped) return
@@ -224,6 +281,7 @@ class MorseTransmitter(
         stop(silent = true)
         runToken++
         safetyOff()
+        monitorScope.cancel()
         workerThread?.quitSafely()
         workerThread = null
         workerHandler = null
@@ -231,7 +289,53 @@ class MorseTransmitter(
         screenController.release()
     }
 
+    /**
+     * 订阅 LED 通道的「被抢占」信号。
+     *
+     * `CameraManager` 的回调是异步到达的，而调度器仍按原时间轴继续下发——
+     * 若不在这里截断，灯已经被相机拿走，App 却还在显示"发送中"并推进进度条。
+     */
+    init {
+        val led = ledController as? TorchManagerController
+        if (led != null) {
+            monitorScope.launch {
+                led.externalTakeover.collect {
+                    if (_state.value.isBusy() && _activeChannel.value == TransmissionChannel.Led) {
+                        stop(AbortReason.ExternalTakeover)
+                    }
+                }
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- internals
+
+    /**
+     * 启动热监测。
+     *
+     * 只在发送期间运行：空闲时零唤醒、零 binder 调用。阈值取 `Moderate` 起，
+     * 达到即中止而不是降速——发送中途改单位时长会让接收端已建立的节奏基准失效，
+     * 比直接停下更糟。
+     */
+    private fun startThermalMonitor(token: Int) {
+        val guard = thermalGuard ?: return
+        thermalJob?.cancel()
+        thermalJob = monitorScope.launch {
+            while (isActive && runToken == token) {
+                delay(THERMAL_CHECK_INTERVAL_MILLIS)
+                if (runToken != token) return@launch
+                if (guard.refresh().requiresThrottle) {
+                    stop(AbortReason.ThermalProtection)
+                    return@launch
+                }
+            }
+        }
+    }
+
+    private fun stopThermalMonitor() {
+        thermalJob?.cancel()
+        thermalJob = null
+    }
 
     private fun runScript(
         script: SendScript,
@@ -331,12 +435,13 @@ class MorseTransmitter(
     }
 
     private fun awaitResume(script: SendScript, index: Int, token: Int): Long? {
-        synchronized(pauseLock) {
+        pauseLock.withLock {
             while (pauseRequested) {
                 if (runToken != token) return null
                 val paused = PlaybackState.Paused(script, index)
                 if (_state.value != paused) _state.value = paused
-                runCatching { pauseLock.wait(PAUSE_POLL_MILLIS) }
+                // 超时轮询而非无限等待：stop() 可能从监控协程到达，不能只依赖信号
+                runCatching { pauseSignal.await(PAUSE_POLL_MILLIS, TimeUnit.MILLISECONDS) }
             }
         }
         if (runToken != token) return null
@@ -357,7 +462,8 @@ class MorseTransmitter(
     private fun cancelCurrent(silent: Boolean) {
         runToken++
         pauseRequested = false
-        synchronized(pauseLock) { pauseLock.notifyAll() }
+        pauseLock.withLock { pauseSignal.signalAll() }
+        stopThermalMonitor()
         safetyOff()
         if (!silent) _state.value = PlaybackState.Idle
     }
@@ -390,5 +496,13 @@ class MorseTransmitter(
         const val COARSE_MARGIN_NANOS = 2_000_000L
 
         const val PAUSE_POLL_MILLIS = 120L
+
+        /**
+         * 热状态轮询间隔。
+         *
+         * 2 s 是精度与开销的折中：热状态的变化尺度是数十秒，采样更密无收益；
+         * 而每次采样都是一次跨进程读取，过密会与前台 UI 争抢调度。
+         */
+        const val THERMAL_CHECK_INTERVAL_MILLIS = 2_000L
     }
 }

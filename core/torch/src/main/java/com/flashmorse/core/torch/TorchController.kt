@@ -3,7 +3,7 @@ package com.flashmorse.core.torch
 import com.flashmorse.core.model.TransmissionChannel
 
 /**
- * 发光通道抽象（规划文档 §5.4）。
+ * 发光通道抽象（架构文档 §5.4）。
  *
  * 上层调度器只认「在 t 时刻把灯设为 on/off」，不关心底层是 LED 还是屏幕，
  * 因此通道切换对业务完全透明，也便于用 Mock 控制器做时序精度测试。

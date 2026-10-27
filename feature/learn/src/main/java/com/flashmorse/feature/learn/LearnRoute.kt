@@ -15,6 +15,7 @@ import com.flashmorse.core.torch.MorseTransmitter
 fun LearnRoute(
     settingsRepository: SettingsRepository,
     transmitter: MorseTransmitter,
+    onOpenPractice: () -> Unit,
     onMessage: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -33,6 +34,7 @@ fun LearnRoute(
         onTabSelected = viewModel::onTabSelected,
         onSelect = viewModel::onSelect,
         onPreview = viewModel::onPreview,
+        onOpenPractice = onOpenPractice,
         modifier = modifier,
     )
 }

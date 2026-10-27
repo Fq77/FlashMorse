@@ -4,7 +4,7 @@ package com.flashmorse.core.model
  * 时间轴上的一个灯态翻转事件。
  *
  * [offsetNanos] 是相对锚点的绝对偏移——任一事件的抖动不会向后传递，
- * 这是与「逐条 delay() 累积」的本质区别（规划文档 §6.2）。
+ * 这是与「逐条 delay() 累积」的本质区别（架构文档 §6.2）。
  */
 data class ScriptEvent(
     val offsetNanos: Long,
@@ -28,7 +28,7 @@ data class ScriptCell(
 }
 
 /**
- * 预编译的绝对时间轴（规划文档 §5.3）。
+ * 预编译的绝对时间轴（架构文档 §5.3）。
  *
  * 播放器只需按 [events] 在绝对时刻切换灯态，不关心底层是 LED 还是屏幕。
  */

@@ -18,7 +18,7 @@ enum class ThermalLevel {
     Unknown,
     ;
 
-    /** 达到该级别即建议降速与提示（规划文档 §4.2）。 */
+    /** 达到该级别即建议降速与提示（架构文档 §4.2）。 */
     val requiresThrottle: Boolean
         get() = this == Moderate || this == Severe || this == Critical || this == Shutdown
 
@@ -35,7 +35,7 @@ enum class ThermalLevel {
 }
 
 /**
- * 热保护监听（规划文档 §4.2）。
+ * 热保护监听（架构文档 §4.2）。
  *
  * 只在发送期间轮询，空闲时零开销——不注册传感器、不运行定时器。
  */

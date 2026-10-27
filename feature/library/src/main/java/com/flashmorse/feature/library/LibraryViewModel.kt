@@ -9,6 +9,7 @@ import com.flashmorse.core.data.prefs.SettingsRepository
 import com.flashmorse.core.data.repository.HistoryRepository
 import com.flashmorse.core.data.repository.PhraseRepository
 import com.flashmorse.core.model.Phrase
+import com.flashmorse.core.model.TimingProfile
 import com.flashmorse.core.model.activeScript
 import com.flashmorse.core.model.isActive
 import com.flashmorse.core.morse.codec.MorseEncoder
@@ -92,16 +93,13 @@ class LibraryViewModel(
         }
         val trimmed = payload.trim()
         if (trimmed.isEmpty()) return
-        val timing = com.flashmorse.core.model.TimingProfile.forWpm(wpm, compensation)
+        val timing = TimingProfile.forWpm(wpm, compensation)
         val script = ScriptCompiler.compile(encoder.encode(trimmed), timing)
         if (script.isEmpty) {
             _messages.trySend("该条目无法编码")
             return
         }
-        val channel = transmitter.resolveChannel(
-            com.flashmorse.core.model.ChannelPreference.Auto,
-            timing,
-        )
+        val channel = transmitter.resolveChannel(timing)
         transmitter.play(script, loop = false, channel = channel)
         viewModelScope.launch { historyRepository.record(trimmed, wpm, channel) }
     }

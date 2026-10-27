@@ -1,6 +1,6 @@
 package com.flashmorse.core.model
 
-/** 播放中止/结束的原因（规划文档 §6.4）。 */
+/** 播放中止/结束的原因（架构文档 §6.4）。 */
 enum class AbortReason {
     /** 用户主动停止 */
     UserStopped,

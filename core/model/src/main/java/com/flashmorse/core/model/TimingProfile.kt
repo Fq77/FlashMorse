@@ -31,7 +31,7 @@ data class TimingProfile(
     val charGapMillis: Int get() = unitMillis * charGapUnits
     val wordGapMillis: Int get() = unitMillis * wordGapUnits
 
-    /** LED 通道的可靠上限（规划文档 §6.1）：15 WPM 以上单位时长 < 80 ms，HAL 延迟不可忽略。 */
+    /** LED 通道的可靠上限（架构文档 §6.1）：15 WPM 以上单位时长 < 80 ms，HAL 延迟不可忽略。 */
     val isLedReliable: Boolean get() = unitMillis >= LED_RELIABLE_UNIT_MILLIS
 
     fun withUnitMillis(unitMillis: Int): TimingProfile = copy(unitMillis = unitMillis)

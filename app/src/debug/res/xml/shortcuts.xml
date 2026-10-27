@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  debug 变体的快捷方式定义。
+
+  静态快捷方式的 targetPackage 是硬编码字符串，不参与 manifestPlaceholders
+  的替换，因此带 .debug 后缀的包必须单独提供一份，否则长按图标不会出现入口。
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_sos"
+        android:shortcutId="sos"
+        android:shortcutLongLabel="@string/shortcut_sos_long"
+        android:shortcutShortLabel="@string/shortcut_sos_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.flashmorse.app.MainActivity"
+            android:targetPackage="com.flashmorse.app.debug">
+            <extra
+                android:name="com.flashmorse.app.extra.SHORTCUT"
+                android:value="sos" />
+        </intent>
+    </shortcut>
+</shortcuts>

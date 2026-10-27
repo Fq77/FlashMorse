@@ -10,7 +10,7 @@
 ![Android](https://img.shields.io/badge/Android-API%2024%2B-3DDC84?logo=android&logoColor=white)
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202026.02-4285F4?logo=jetpackcompose&logoColor=white)
 ![Miuix](https://img.shields.io/badge/Miuix-0.9.4-FF6900)
-![Version](https://img.shields.io/badge/version-1.0.0-38BDF8)
+![Version](https://img.shields.io/badge/version-1.1.0-38BDF8)
 ![License](https://img.shields.io/badge/License-MIT-38BDF8)
 
 </div>
@@ -33,8 +33,10 @@
 - ✍️ **手动发报** — 按住即亮，松手出符号；2t 判定点划，3t 自动断字、7t 自动断词，边敲边解码
 - 📚 **短语与历史** — 6 条内置应急短语开箱可用，支持行内改名/改报文、长按拖拽排序、一键直发；历史记录可单删或清空
 - 🔤 **摩斯对照表** — 字母 / 数字 / 标点三组，每个字符可单独试闪，并显示点划数量与当前速度
+- 🎯 **识读练习** — 灯光出题、四选一作答、10 题一轮；答完立即揭示点划形态，并按正确率给出下一步建议
+- ⚡ **桌面快捷方式** — 长按图标直达「发 SOS」，省掉「打开应用 → 找到按钮」两步（首次仍需免责确认）
 - 🧭 **求生与求救指南** — SOS、三次法则、遮挡法、对空对地手势，以及省电与留痕的野外要点
-- 🌡 **热保护与中断检测** — 发送期间轮询系统热状态并分级提示；手电筒被其他应用抢占时立即中止并说明原因
+- 🌡 **热保护与中断检测** — 发送期间每 2 s 轮询系统热状态，达到「中度发热」即中止并说明原因；手电筒被其他应用抢占时立即中止并说明原因
 - 🎵 **发报侧音** — 600 Hz 滴声与灯同步（可关），盲发时靠听觉核对节奏
 - 🌙 **HyperOS 观感** — Miuix 深色设计体系，进度环按帧外推、屏幕闪光绘制期读态零重组
 
@@ -51,16 +53,18 @@
 | 发光 | `CameraManager.setTorchMode`（零权限）/ 全屏白闪（StateFlow 驱动） |
 | 时序 | 独立 HandlerThread（`THREAD_PRIORITY_URGENT_AUDIO`）+ 绝对时间轴 + 自旋命中 |
 | 依赖注入 | 手工 `AppContainer`（依赖图浅，不引入注解处理器） |
-| 测试 | JUnit4，26 个 JVM 单测（码表逐字比对、SOS 时长、点划比例、亮度分级） |
+| 测试 | JUnit4，35 个 JVM 单测（码表逐字比对、SOS 时长、点划比例、时间轴边界、编解码闭环、亮度分级） |
 
 `core:model` 与 `core:morse` 是纯 Kotlin/JVM 模块，零 Android 依赖，因此时序与编解码逻辑可以直接在 JVM 上跑单测，不需要模拟器。
+
+架构约束、时序模型的取舍与不可随意改动的设计决定，见 [`docs/architecture.md`](docs/architecture.md)。代码注释中的 `架构文档 §X.X` 均指向该文件。
 
 ## 🧠 时序引擎怎么工作
 
 ```
 用户输入
   → TextNormalizer      全角转半角、中文标点映射、无法编码的字符降级为 "?"（绝不静默丢字）
-  → MorseEncoder        ITU-R M.1677-1 码表（字母 / 数字 / 标点 + 7 组 prosign）
+  → MorseEncoder        ITU-R M.1677-1 码表（字母 / 数字 / 标点），无法编码的字符降级为 "?"
   → ScriptCompiler      编译为绝对时间轴：事件偏移 + 每个符号的 [start, end] 区间
   → MorseTransmitter    HandlerThread(URGENT_AUDIO) 上按锚点调度
         ├─ parkNanos 粗睡 → 最后 2 ms 自旋命中目标时刻
@@ -92,7 +96,7 @@ FlashMorse/
     ├── compose/                # 发报页：输入、发送卡、SOS、手电筒常亮
     ├── manual/                 # 手动发报：点按敲击 → 断字断词 → 解码
     ├── library/                # 短语与历史
-    ├── learn/                  # 摩斯对照表 + 求生与求救指南
+    ├── learn/                  # 摩斯对照表 + 识读练习 + 求生与求救指南
     └── settings/               # 设置 / 速度 / 校准 / 诊断 / 关于
 ```
 
@@ -111,16 +115,20 @@ cd FlashMorse
 ./gradlew installDebug     # 或直接用 Android Studio Run
 ```
 
+debug 变体的 `applicationId` 带 `.debug` 后缀（`com.flashmorse.app.debug`），
+因此调试版与正式版可以同时安装、互不覆盖，桌面上分别显示为「闪光摩斯 Debug」与「闪光摩斯」。
+
 ### 首次使用
 
 1. 输入报文，点按发送卡即可发报；首次发 SOS 会弹出一次免责确认；
 2. 设置页可调速度（5–25 WPM）、通道偏好、循环发送、发报侧音与震动反馈；
 3. 若点划观感整体偏早/偏晚，进「时序补偿」以 5 ms 为步长微调，或直接试闪 SOS 校准；
-4. 无闪光灯的设备会自动固定为屏幕闪光通道，无需额外设置。
+4. 无闪光灯的设备会自动固定为屏幕闪光通道，无需额外设置；
+5. 「对照」页顶部的练习卡可进入识读训练；长按桌面图标可直达「发 SOS」。
 
 ## 📌 版本
 
-当前 **v1.0.0**（versionCode 1）：双通道发报、可校准时序、手动发报、短语与历史、对照表、求生指南、热保护与中断检测。
+当前 **v1.1.0**（versionCode 2）：双通道发报、可校准时序、手动发报、短语与历史、对照表、识读练习、求生指南、热保护与中断检测、桌面快捷键。
 
 ## ⚠️ 免责声明
 

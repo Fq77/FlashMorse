@@ -1,7 +1,7 @@
 package com.flashmorse.core.morse.timing
 
 /**
- * 高分辨率单调时钟抽象（规划文档 §5.3）。
+ * 高分辨率单调时钟抽象（架构文档 §5.3）。
  *
  * Android 侧实现必须基于 `SystemClock.elapsedRealtimeNanos()`，
  * 因为它包含深度休眠时间，而 `System.nanoTime()` 不包含。

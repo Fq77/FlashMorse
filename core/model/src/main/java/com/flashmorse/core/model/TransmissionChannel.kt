@@ -1,6 +1,6 @@
 package com.flashmorse.core.model
 
-/** 承载光信号的物理通道（规划文档 §11.3）。 */
+/** 承载光信号的物理通道（架构文档 §11.3）。 */
 enum class TransmissionChannel {
     /** LED 手电筒：远距离、抗环境光，延迟 30–300 ms */
     Led,

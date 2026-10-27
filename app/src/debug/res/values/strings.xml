@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  debug 变体的应用名。
+  debug 与 release 使用不同 applicationId（.debug 后缀）后会同时存在于桌面，
+  两个同名图标无法区分，因此这里明确标注。
+-->
+<resources>
+    <string name="app_name">闪光摩斯 Debug</string>
+</resources>

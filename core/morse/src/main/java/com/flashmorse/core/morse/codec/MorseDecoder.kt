@@ -1,10 +1,9 @@
 package com.flashmorse.core.morse.codec
 
 import com.flashmorse.core.model.MorseSymbol
-import com.flashmorse.core.model.isSignal
 
 /**
- * 符号/模式 → 文本，供手动发报模式的回显使用（规划文档 §5.3）。
+ * 符号/模式 → 文本，供手动发报模式的回显使用（架构文档 §5.3）。
  */
 object MorseDecoder {
 
@@ -21,23 +20,37 @@ object MorseDecoder {
         return sb.toString()
     }
 
-    /** 从元素序列解码（间隔元素触发断字/断词）。 */
+    /**
+     * 从元素序列解码（间隔元素触发断字/断词）。
+     *
+     * 关键区分：[MorseSymbol.ElementGap] 是**字符内部**的 1t 间隔，
+     * 不能切分当前 pattern——否则 `....` 会被拆成四个 `E`。
+     * 只有 [MorseSymbol.CharGap]（3t）才结束一个字符。
+     */
     fun decodeSymbols(symbols: List<MorseSymbol>): String {
         val patterns = mutableListOf<String>()
         val current = StringBuilder()
+
+        fun flush() {
+            if (current.isNotEmpty()) {
+                patterns += current.toString()
+                current.clear()
+            }
+        }
+
         for (symbol in symbols) {
-            when {
-                symbol.isSignal -> current.append(if (symbol == MorseSymbol.Dot) '.' else '-')
-                else -> {
-                    if (current.isNotEmpty()) {
-                        patterns += current.toString()
-                        current.clear()
-                    }
-                    if (symbol == MorseSymbol.WordGap) patterns += WORD_BREAK
+            when (symbol) {
+                MorseSymbol.Dot -> current.append('.')
+                MorseSymbol.Dash -> current.append('-')
+                MorseSymbol.ElementGap -> Unit
+                MorseSymbol.CharGap -> flush()
+                MorseSymbol.WordGap -> {
+                    flush()
+                    patterns += WORD_BREAK
                 }
             }
         }
-        if (current.isNotEmpty()) patterns += current.toString()
+        flush()
         return decode(patterns)
     }
 

@@ -13,8 +13,8 @@ import com.flashmorse.core.torch.impl.TorchManagerController
  * 应用级依赖容器（手工装配）。
  *
  * 为什么不是 Hilt：本项目模块数量虽多，但依赖图极浅（仓储 + 单一调度器），
- * 引入注解处理器只会增加构建链路风险而不带来收益；这与规划文档「团队 < 3 人
- * 且模块多 → Hilt」的判断并不冲突，因为该判断的前提是依赖图复杂。
+ * 引入注解处理器只会增加构建链路风险而不带来收益。这与「团队 < 3 人且模块多 → Hilt」
+ * 的常见判断并不冲突，因为该判断的前提是依赖图复杂。
  *
  * 所有实例均为进程级单例：手电筒与调度器必须唯一，否则多通道会互相抢占。
  */
@@ -34,12 +34,14 @@ class AppContainer(context: Context) {
     val ledController: TorchManagerController? =
         if (torchCapabilities.hasFlash) TorchManagerController(appContext, torchCapabilities) else null
 
+    /** 热状态数据源：供发送期热保护与诊断页共用同一份读数。 */
+    val thermalGuard = ThermalGuard(appContext)
+
     val transmitter = MorseTransmitter(
         ledController = ledController,
         screenController = screenFlashController,
+        thermalGuard = thermalGuard,
     )
-
-    val thermalGuard = ThermalGuard(appContext)
 
     val settingsRepository = SettingsRepository(appContext)
 

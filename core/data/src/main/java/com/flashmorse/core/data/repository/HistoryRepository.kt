@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.io.File
+import java.util.UUID
 
 /** 发送历史（F-10）：最近 50 条，支持一键重发。 */
 class HistoryRepository(context: Context) {
@@ -37,7 +38,9 @@ class HistoryRepository(context: Context) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return@withLock
         val entry = HistoryEntry(
-            id = "h-${System.currentTimeMillis()}",
+            // 不能用 currentTimeMillis：同一毫秒内两条记录会撞 id，
+            // 而它是 LazyColumn 的 key，撞了就是运行时崩溃或错行。
+            id = "h-${UUID.randomUUID()}",
             text = trimmed,
             sentAtEpochMillis = System.currentTimeMillis(),
             wpm = wpm,

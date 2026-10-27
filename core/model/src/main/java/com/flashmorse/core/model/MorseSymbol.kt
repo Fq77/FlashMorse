@@ -1,7 +1,7 @@
 package com.flashmorse.core.model
 
 /**
- * 摩斯时序的基本元素（对齐规划文档 §5.3）。
+ * 摩斯时序的基本元素（对齐架构文档 §5.3）。
  *
  * 一个字符由若干 [Dot] / [Dash] 组成，元素之间是 [ElementGap]；
  * 字符之间是 [CharGap]，单词之间是 [WordGap]。

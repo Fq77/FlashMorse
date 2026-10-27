@@ -12,6 +12,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.io.File
+import java.util.UUID
 
 /**
  * 短语库（F-09）。
@@ -48,7 +49,8 @@ class PhraseRepository(context: Context) {
 
     suspend fun add(label: String, payload: String): Phrase = mutex.withLock {
         val record = PhraseRecord(
-            id = "custom-${System.currentTimeMillis()}",
+            // 同 HistoryRepository：id 是列表 key，毫秒时间戳会撞。
+            id = "custom-${UUID.randomUUID()}",
             label = label.trim().ifBlank { payload.trim() },
             payload = payload.trim(),
             builtIn = false,
@@ -118,7 +120,7 @@ internal data class PhraseRecord(
 /**
  * 内置短语。
  *
- * label 用中文、payload 用英文/数字——v1.0 不做中文电报码（规划文档 §3.2），
+ * label 用中文、payload 用英文/数字——v1.0 不做中文电报码（架构文档 §3.2），
  * 直接发中文会退化为 `?`，因此把中文留在展示层。
  */
 internal object BuiltInPhrases {

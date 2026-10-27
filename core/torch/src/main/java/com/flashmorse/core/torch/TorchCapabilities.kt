@@ -2,7 +2,7 @@ package com.flashmorse.core.torch
 
 import com.flashmorse.core.model.TransmissionChannel
 
-/** 设备发光能力描述（规划文档 §5.4）。 */
+/** 设备发光能力描述（架构文档 §5.4）。 */
 data class TorchCapabilities(
     /** 后置摄像头 ID；无闪光灯时为 null。 */
     val cameraId: String? = null,

@@ -25,6 +25,8 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -38,7 +40,7 @@ import com.flashmorse.core.model.ScriptCell
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 符号流视图（规划文档 §7.5 第 2 段）。
+ * 符号流视图（架构文档 §7.5 第 2 段）。
  *
  * 直接 `Canvas` 绘制而不是逐符号创建 Composable：发送中每 ~120 ms 一次状态刷新，
  * 逐元素组合会带来不必要的重组开销。
@@ -90,7 +92,22 @@ fun MorseStream(
             Modifier
         }
 
-        Canvas(modifier = Modifier.fillMaxSize().then(gesture)) {
+        // 纯 Canvas 不带任何语义节点，读屏用户会完全跳过这块内容。
+        // 这里补一句可听的状态描述：说清总量与当前位置，而不是逐符号朗读（那会变成噪音）。
+        val description = remember(cells, activeIndex) {
+            when {
+                cells.isEmpty() -> "无报文"
+                activeIndex < 0 -> "共 ${cells.size} 个符号单元"
+                else -> "共 ${cells.size} 个符号单元，当前第 ${activeIndex + 1} 个"
+            }
+        }
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(gesture)
+                .semantics { contentDescription = description },
+        ) {
             val barPx = metrics.barHeight.toPx()
             val radius = CornerRadius(barPx / 2f, barPx / 2f)
             val centerY = size.height / 2f
@@ -167,7 +184,7 @@ internal fun Modifier.panHorizontally(onDrag: (Float) -> Unit): Modifier =
 
 /**
  * 按绘制规则计算一个 pattern 需要的总宽度（与绘制逻辑一致：点 1、划 3、
- * 每个符号后 0.9 倍间距）。
+ * 每个符号后 0.9 倍间距、空格 2.25 倍字符间隔）。
  */
 fun morsePatternWidth(pattern: String, barHeight: Dp): Dp {
     var units = 0f
@@ -175,10 +192,14 @@ fun morsePatternWidth(pattern: String, barHeight: Dp): Dp {
         when (ch) {
             '.' -> units += 1.9f
             '-' -> units += 3.9f
+            ' ' -> units += CHAR_GAP_FACTOR
         }
     }
     return barHeight * units
 }
+
+/** 字符间隔相对柱高的倍数：与 [StreamMetrics.charGap]（0.75 × 3）保持一致。 */
+private const val CHAR_GAP_FACTOR = 2.25f
 
 /**
  * 单个字符的点划模式，供对照表、短语行与发送卡复用。
@@ -235,7 +256,7 @@ fun MorsePattern(
     }
 }
 
-/** MorsePattern 的实际绘制：横轴按点 1 / 划 3 / 间距 0.9 递进。 */
+/** MorsePattern 的实际绘制：横轴按点 1 / 划 3 / 间距 0.9 递进，空格代表字符间隔。 */
 private fun DrawScope.drawMorsePattern(
     pattern: String,
     barPx: Float,
@@ -262,6 +283,9 @@ private fun DrawScope.drawMorsePattern(
                 )
                 x += dashW + gap
             }
+
+            // 字母之间用空格分隔（短语行与对照表共用同一串 pattern 约定）
+            ' ' -> x += barPx * CHAR_GAP_FACTOR
         }
     }
 }

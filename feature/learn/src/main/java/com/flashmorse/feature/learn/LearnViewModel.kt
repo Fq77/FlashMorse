@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.flashmorse.core.data.prefs.SettingsRepository
-import com.flashmorse.core.model.ChannelPreference
 import com.flashmorse.core.model.MorseLetter
 import com.flashmorse.core.model.isActive
 import com.flashmorse.core.model.TimingProfile
@@ -93,7 +92,7 @@ class LearnViewModel(
         }
         val timing = TimingProfile.forWpm(wpm, compensation)
         val script = ScriptCompiler.compileSingle(letter.char, letter.pattern, timing)
-        val channel = transmitter.resolveChannel(ChannelPreference.Auto, timing)
+        val channel = transmitter.resolveChannel(timing)
         _state.update { it.copy(selected = letter, playingChar = letter.char) }
         transmitter.play(script, loop = false, channel = channel)
     }

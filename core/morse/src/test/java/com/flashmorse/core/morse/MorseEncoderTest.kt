@@ -64,7 +64,7 @@ class MorseEncoderTest {
 
     @Test
     fun `sos total duration is 27 units`() {
-        // 规划文档 §11.1：SOS 在 10 WPM 下总时长 = 27t = 3240 ms
+        // 架构文档 §11.1：SOS 在 10 WPM 下总时长 = 27t = 3240 ms
         val timing = TimingProfile.forWpm(10)
         val script = ScriptCompiler.compile(encoder.encode("SOS"), timing)
         assertEquals(3240L, script.totalMillis)

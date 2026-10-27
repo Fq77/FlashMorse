@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * 屏幕全屏白闪通道（规划文档 §6.1 方案 D）。
+ * 屏幕全屏白闪通道（架构文档 §6.1 方案 D）。
  *
  * 低延迟（受帧率约束，通常 ≤ 16 ms）、100% 可用，作为 LED 不可用时的兜底，
  * 同时也是高速发报的推荐通道。

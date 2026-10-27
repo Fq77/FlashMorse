@@ -13,12 +13,11 @@ import com.flashmorse.core.torch.ThermalLevel
 
 /** 发报页的不可变 UI 状态。 */
 data class SenderUiState(
-    val message: String = "SOS",
+    val message: String = "",
     val wpm: Int = TimingProfile.DEFAULT_WPM,
     val timing: TimingProfile = TimingProfile.forWpm(TimingProfile.DEFAULT_WPM),
     val channelPreference: ChannelPreference = ChannelPreference.Auto,
     val resolvedChannel: TransmissionChannel = TransmissionChannel.Led,
-    val ledAvailable: Boolean = true,
     val playback: PlaybackState = PlaybackState.Idle,
     val script: SendScript = SendScript.Empty,
     val code: MorseCode = MorseCode.Empty,

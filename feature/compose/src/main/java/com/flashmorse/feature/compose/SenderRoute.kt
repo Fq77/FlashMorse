@@ -25,6 +25,8 @@ fun SenderRoute(
     thermalGuard: ThermalGuard,
     onOpenManual: () -> Unit,
     onMessage: (String) -> Unit,
+    sosRequested: Boolean = false,
+    onSosRequestHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val viewModel: SenderViewModel = viewModel(
@@ -37,9 +39,18 @@ fun SenderRoute(
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
     val currentOnMessage by rememberUpdatedState(onMessage)
+    val currentOnSosHandled by rememberUpdatedState(onSosRequestHandled)
 
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { currentOnMessage(it) }
+    }
+
+    // 桌面快捷方式入口：只消费一次，消费后立刻回调清位，避免重组时重复触发
+    LaunchedEffect(sosRequested) {
+        if (sosRequested) {
+            viewModel.requestSos()
+            currentOnSosHandled()
+        }
     }
 
     SenderScreen(

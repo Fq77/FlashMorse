@@ -22,12 +22,15 @@ class FlashMorseApplication : Application() {
 
         // 亮度的唯一真源是 Settings：冷启动、设置页拖动、将来其它入口修改，都走这一条下发路径，
         // 避免"某个页面忘了同步"导致界面显示 30% 而实际满亮。
+        // 通道偏好同理：所有发送入口都经 transmitter.resolveChannel(timing) 取通道，
+        // 因此这里同步一次即可覆盖发报 / 短语 / 对照表 / 手动 / 校准试闪。
         appScope.launch {
             container.settingsRepository.settings.collect { settings ->
                 container.transmitter.setBrightness(
                     Brightness.percentToFraction(settings.effectiveBrightnessPercent),
                 )
                 container.transmitter.setSoundEnabled(settings.soundEnabled)
+                container.transmitter.setChannelPreference(settings.channel)
             }
         }
     }

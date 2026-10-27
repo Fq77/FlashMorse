@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  长按桌面图标可直达 SOS。
+
+  注意：这仍然会经过一次免责确认（首次），因为「一键发出求救信号」在多数司法辖区
+  是有法律后果的行为。快捷方式省掉的是「打开应用 → 找到按钮」两步，不是确认步骤。
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_sos"
+        android:shortcutId="sos"
+        android:shortcutLongLabel="@string/shortcut_sos_long"
+        android:shortcutShortLabel="@string/shortcut_sos_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.flashmorse.app.MainActivity"
+            android:targetPackage="com.flashmorse.app">
+            <extra
+                android:name="com.flashmorse.app.extra.SHORTCUT"
+                android:value="sos" />
+        </intent>
+    </shortcut>
+</shortcuts>

@@ -36,9 +36,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.flashmorse.core.designsystem.component.MorsePattern
 import com.flashmorse.core.designsystem.component.SectionHeader
+import com.flashmorse.core.designsystem.component.morsePatternWidth
 import com.flashmorse.core.designsystem.icon.FmIcons
 import com.flashmorse.core.model.HistoryEntry
 import com.flashmorse.core.model.Phrase
@@ -404,6 +407,9 @@ private fun PhraseRow(
                         text = item.phrase.label,
                         style = MiuixTheme.textStyles.subtitle,
                         color = colorScheme.onSurfaceContainer,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                     if (item.phrase.builtIn) {
                         Spacer(modifier = Modifier.width(6.dp))
@@ -415,11 +421,30 @@ private fun PhraseRow(
                     }
                 }
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = item.phrase.payload,
-                    style = MiuixTheme.textStyles.footnote1,
-                    color = colorScheme.onSurfaceVariantSummary,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = item.phrase.payload,
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = colorScheme.onSurfaceVariantSummary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    // 点划预览：文本告诉你发什么，形态告诉你发出来是什么样。
+                    // 宽度按 pattern 实算后封顶，长报文只显示开头一段（预览够用，且不挤压标题）。
+                    MorsePattern(
+                        pattern = item.previewPattern,
+                        modifier = Modifier
+                            .width(
+                                morsePatternWidth(item.previewPattern, PHRASE_PREVIEW_BAR)
+                                    .coerceAtMost(PHRASE_PREVIEW_MAX_WIDTH),
+                            )
+                            .height(PHRASE_PREVIEW_BAR),
+                        height = PHRASE_PREVIEW_BAR,
+                        color = colorScheme.onSurfaceVariantSummary,
+                    )
+                }
             }
 
             RowIconAction(
@@ -633,6 +658,10 @@ private fun PhraseEditorDialog(
 }
 
 // --------------------------------------------------------------------- helpers
+
+/** 短语行点划预览的柱高与宽度上限。 */
+private val PHRASE_PREVIEW_BAR = 3.dp
+private val PHRASE_PREVIEW_MAX_WIDTH = 64.dp
 
 private fun formatTime(epochMillis: Long): String {
     val diff = System.currentTimeMillis() - epochMillis

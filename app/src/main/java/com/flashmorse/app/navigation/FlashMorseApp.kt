@@ -1,5 +1,8 @@
 package com.flashmorse.app.navigation
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -24,6 +27,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flashmorse.app.BuildConfig
 import com.flashmorse.app.di.AppContainer
@@ -53,7 +59,11 @@ import top.yukonga.miuix.kmp.nav.transition.navGraphicsTransition
  * 上下两层的内容与 chrome 会作为整体一起位移，不会出现「正文动了、顶栏没动」的割裂。
  */
 @Composable
-fun FlashMorseApp(container: AppContainer) {
+fun FlashMorseApp(
+    container: AppContainer,
+    sosRequested: Boolean = false,
+    onSosRequestHandled: () -> Unit = {},
+) {
     val backStack = rememberNavBackStack<Route>(Route.Home)
 
     var tabName by rememberSaveable { mutableStateOf(HomeTab.Sender.name) }
@@ -66,9 +76,9 @@ fun FlashMorseApp(container: AppContainer) {
     // 底栏点击：立刻更新选中态，并直接发起翻页动画。新的 scroll mutate 与在播
     // 动画同优先级，MutatorMutex 会当场打断旧动画、从当前位置连续改向——
     // 中间页永不落定，Pager 的自动吸附没有可乘之机。
-    // 旧实现经 LaunchedEffect(tab) 间接重启：取消到重启之间隔了一帧重组，
-    // 吸附抢先落位最近的中间页，settledPage 回写又把点击选择吞回上一页，
-    // 表现为「点击没反应，稍等才能再点」。
+    // 必须直接 animateScrollToPage，不能经 LaunchedEffect(tab) 间接重启：
+    // 取消到重启之间隔了一帧重组，吸附会抢先落位最近的中间页，settledPage 回写
+    // 又把点击选择吞回上一页，表现为「点击没反应，稍等才能再点」。
     val selectTab: (HomeTab) -> Unit = { target ->
         if (target.name != tabName) {
             tabName = target.name
@@ -96,6 +106,31 @@ fun FlashMorseApp(container: AppContainer) {
     DisposableEffect(playback.isActive) {
         view.keepScreenOn = playback.isActive
         onDispose { view.keepScreenOn = false }
+    }
+
+    // 离开前台即停止发送。
+    //
+    // 当前没有前台服务：应用不可见后 HandlerThread 仍会跑完，但用户既看不到进度
+    // 也没有停止入口——灯会一直闪到报文结束，而且进程被回收时最后状态可能停在“亮”。
+    // 与其留下一个失控的光源，不如明确停下并说明原因。
+    // 配置变更（旋转、字体大小）也会触发 ON_STOP，必须排除，否则转屏就断发送。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val activePlayback by rememberUpdatedState(playback)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event != Lifecycle.Event.ON_STOP) return@LifecycleEventObserver
+            if (context.findActivity()?.isChangingConfigurations == true) return@LifecycleEventObserver
+            if (activePlayback.isActive) {
+                container.transmitter.stop()
+                Toast.makeText(
+                    context,
+                    "已停止发送：离开应用后无法保证发报时序",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -130,6 +165,9 @@ fun FlashMorseApp(container: AppContainer) {
                             onTabSelected = { next -> tabName = next.name },
                             onMessage = showMessage,
                             onOpenManual = { backStack.add(Route.Manual) },
+                            onOpenPractice = { backStack.add(Route.Practice) },
+                            sosRequested = sosRequested,
+                            onSosRequestHandled = onSosRequestHandled,
                         )
                     }
                 }
@@ -215,6 +253,17 @@ fun FlashMorseApp(container: AppContainer) {
                     }
                 }
             }
+
+            entry<Route.Practice> {
+                DetailPage(title = "识读练习", onBack = { backStack.removeLastOrNull() }) { padding ->
+                    PageBody(padding) {
+                        com.flashmorse.feature.learn.PracticeRoute(
+                            settingsRepository = container.settingsRepository,
+                            transmitter = container.transmitter,
+                        )
+                    }
+                }
+            }
         }
         // 屏幕闪光通道的全屏光斑必须盖在所有页面之上，且自身可点按停止
         ScreenFlashOverlay(
@@ -242,12 +291,11 @@ private fun PageBody(
 }
 
 /**
- * 页面转场：直接使用 Miuix 设计预置。
+ * 页面转场：直接使用 Miuix 设计预置，不要自行覆盖时长与缓动。
  *
- * 之前这里手写过 260 ms 的 Tween + FastOutSlowInEasing，那是拍脑袋的数值：
- * 库的设计速率由 `NavMotion.Default.programmatic` 定义（整步 500 ms，配套缓动），
- * 自行覆盖只会让切页节奏与同一套设计语言的其他动效脱节。
- * 几何（整页滑入 + 下层 1/4 视差 + 10% 透明度衰减）也一并交回预置。
+ * 库的设计速率由 `NavMotion.Default.programmatic` 定义（整步 500 ms，配套缓动）；
+ * 手写 Tween 会让切页节奏与同一套设计语言的其他动效脱节。
+ * 几何（整页滑入 + 下层 1/4 视差 + 10% 透明度衰减）同样交回预置。
  */
 private val AppTransition: NavTransition = NavTransitions.MiuixDefault
 
@@ -278,6 +326,9 @@ private fun HomeContent(
     onTabSelected: (HomeTab) -> Unit,
     onMessage: (String) -> Unit,
     onOpenManual: () -> Unit,
+    onOpenPractice: () -> Unit,
+    sosRequested: Boolean,
+    onSosRequestHandled: () -> Unit,
 ) {
     // 滑动回写仍以 settledPage 为准：动画完全落定才同步，避免与点击动画互相拉扯。
     // currentTab 用 rememberUpdatedState 保持最新，防止长驻协程捕获过期值。
@@ -306,6 +357,8 @@ private fun HomeContent(
                 thermalGuard = container.thermalGuard,
                 onOpenManual = onOpenManual,
                 onMessage = onMessage,
+                sosRequested = sosRequested,
+                onSosRequestHandled = onSosRequestHandled,
             )
 
             HomeTab.Library -> LibraryRoute(
@@ -319,6 +372,7 @@ private fun HomeContent(
             HomeTab.Learn -> LearnRoute(
                 settingsRepository = container.settingsRepository,
                 transmitter = container.transmitter,
+                onOpenPractice = onOpenPractice,
                 onMessage = onMessage,
             )
 
@@ -328,3 +382,10 @@ private fun HomeContent(
 }
 
 private val APP_VERSION: String = BuildConfig.VERSION_NAME
+
+/** 从 Compose 的 Context 取宿主 Activity，用于区分「配置变更」与「真正离开前台」。 */
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
