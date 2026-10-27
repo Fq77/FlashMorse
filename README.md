@@ -10,7 +10,7 @@
 ![Android](https://img.shields.io/badge/Android-API%2024%2B-3DDC84?logo=android&logoColor=white)
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202026.02-4285F4?logo=jetpackcompose&logoColor=white)
 ![Miuix](https://img.shields.io/badge/Miuix-0.9.4-FF6900)
-![Version](https://img.shields.io/badge/version-1.1.0-38BDF8)
+![Version](https://img.shields.io/badge/version-1.1.1-38BDF8)
 ![License](https://img.shields.io/badge/License-MIT-38BDF8)
 
 </div>
@@ -128,7 +128,7 @@ debug 变体的 `applicationId` 带 `.debug` 后缀（`com.flashmorse.app.debug`
 
 ## 📌 版本
 
-当前 **v1.1.0**（versionCode 2）：双通道发报、可校准时序、手动发报、短语与历史、对照表、识读练习、求生指南、热保护与中断检测、桌面快捷键。
+当前 **v1.1.1**（versionCode 3）：双通道发报、可校准时序、手动发报、短语与历史、对照表、识读练习、求生指南、热保护与中断检测、桌面快捷键。
 
 ## ⚠️ 免责声明
 
